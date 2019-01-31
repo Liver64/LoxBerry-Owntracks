@@ -32,13 +32,14 @@
 	
 	<tr>
 	<td colspan=3 valign="middle" style="height: 36px">
-		<TMPL_IF locationdata>
-			<font size="-1"><TMPL_VAR MENU.IT_TEXT1></font>
-		<TMPL_ELSE>
+		<TMPL_IF NAME="locationdata">
 			<font size="-1"><TMPL_VAR MENU.IT_TEXT2></font>
+		<TMPL_ELSE>
+			<font size="-1"><TMPL_VAR MENU.IT_TEXT1></font>
 		</TMPL_IF>
 	</td>
-	</tr>
+</tr>
+
 <tr>
 
 <!-- Basiskonfiguration-->
@@ -81,8 +82,8 @@
 					data-validation-error-msg="<TMPL_VAR VALIDATION.ERROR_LONGITUDE>">			
 			</td>
 		</table>
-	</tr>
-	<hr/>
+</tr>
+<hr/>
 
 <!-- End Basiskonfiguration-->
 
@@ -103,8 +104,7 @@
 	
 
 <!-- Fields User-->
-				
-		</tr>
+		<tr>
 			<table border=0 width="100%">
 				<tr>
 					<tr>
@@ -118,14 +118,12 @@
 							</tbody>
 						</table>
 					</tr>
-				</tr>
 			</table>
-		</td>
-		<td style="height: 30px; width: 201px;">
-		</td>
-		<td style="height: 30px; width: 24px;">
-		</td>
-	</tr>
+			<td style="height: 30px; width: 201px;">
+			</td>
+			<td style="height: 30px; width: 24px;">
+			</td>
+		</tr>
 </table>
 
 <!-- End Fields User-->
@@ -146,7 +144,7 @@
 
 
 <hr/>
-</table>
+
 </div>
 <tr>
 <h3>&nbsp;</h3>
@@ -210,14 +208,13 @@ $(document).ready( function ()  {
 		validate_enable('#latitude');
 		validate_enable('#longitude');
 		validate_chk_object(['#dyndns','#port','#location','#radius','#latitude','#longitude']);
+				
 		$("#main_form").trigger('create');
 	});
 	
 
 	
 </script>
-
-
 </TMPL_IF>
 
 

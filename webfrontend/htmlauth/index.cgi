@@ -187,14 +187,13 @@ if ($pcfg->param("LOCATION.longitude") eq '' or $pcfg->param("LOCATION.latitude"
 	if (-r $lbhomedir . "/config/plugins/weather4lox/weather4lox.cfg") 
 	{
 		my $wcfg = new Config::Simple($lbhomedir . "/config/plugins/weather4lox/weather4lox.cfg");
-		LOGDEB "The weather4lox config file has been loaded";
+		LOGDEB "Weather4lox Plugin has been detected and config file has been loaded";
 		# import longitude
 		if (!$wcfg->param("DARKSKY.COORDLONG") eq "")   {
 			$pcfg->param("LOCATION.longitude", $wcfg->param("DARKSKY.COORDLONG"));
 			LOGDEB "Longitude has been passed over from weather4lox Darksky settings";
 		} elsif (!$wcfg->param("WEATHERBIT.COORDLONG") eq "")   {
 			$pcfg->param("LOCATION.longitude", $wcfg->param("WEATHERBIT.COORDLONG"));
-			
 			LOGDEB "Longitude has been passed over from weather4lox Weatherbit settings";
 		} elsif (!$wcfg->param("WUNDERGROUND.COORDLONG") eq "")   {
 			$pcfg->param("LOCATION.longitude", $wcfg->param("WUNDERGROUND.COORDLONG"));
@@ -211,15 +210,17 @@ if ($pcfg->param("LOCATION.longitude") eq '' or $pcfg->param("LOCATION.latitude"
 			$pcfg->param("LOCATION.latitude", $wcfg->param("WUNDERGROUND.COORDLAT"));
 			LOGDEB "Latitude has been passed over from weather4lox Wunderground settings";
 		}
-		$pcfg->param("LOCATION.locationdata" => "true");
+		$template->param("locationdata" => 1);
+		$pcfg->param("LOCATION.locationdata" => 1);
 		$pcfg->save() or &error;
-		LOGDEB "Data from weather4lox data has been saved";
+		LOGDEB "Data from weather4lox has been saved";
 	} else {
-		LOGDEB "No geo location data found on your LoxBerry";
-		$pcfg->param("LOCATION.locationdata" => "false");
-		$pcfg->save() or &error;
+		LOGDEB "No Geo location data found on your LoxBerry";
 	}
 	
+} else {
+	$template->param("locationdata" => 1);
+	LOGDEB "Location data used from Plugin config";
 }
 
 ##########################################################################
@@ -298,7 +299,7 @@ sub form {
 	$rowsuser .= "<input type='hidden' id='countuser' name='countuser' value='$countuser'>\n";
 	$template->param("ROWSUSER", $rowsuser);
 		
-	#$content = "@{[%weatherconfig]}";
+	#$content = "@{[%hash]}";
 	#$content = $wcfg;
 	#print_test($content);
 	#exit;
@@ -395,7 +396,8 @@ sub inittemplate
 				die_on_bad_params=> 0,
 				associate => $pcfg,
 				%htmltemplate_options,
-				debug => 1
+				debug => 1,
+				cache => 0,
 				);
 	%SL = LoxBerry::System::readlanguage($template, $languagefile);			
 
