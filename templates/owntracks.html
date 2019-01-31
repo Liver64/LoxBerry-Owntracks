@@ -1,0 +1,224 @@
+﻿<style>
+
+</style>
+
+<TMPL_IF FORM>
+
+<body>
+<form method="post" name="main_form" id="main_form" accept-charset="utf-8" data-ajax="false" action="./index.cgi">
+<input type="hidden" name="saveformdata" value="1">
+<div class="form-group">
+
+<!-- Header-->
+
+<table class="formtable" border="0" width="100%" cellpadding="10">
+	<tr>
+		<td valign="middle" style="height: 33px; width: 25%; text-align: center;">
+			<h1 style="width: 100%"><TMPL_VAR BASIC.PLUGIN_NAME></h1>
+		<td style="height: 33px; text-align: center; width: 727px;">
+			<img class='ico_owntracks' src='/plugins/<TMPL_VAR PLUGINDIR>/images/owntracks_128.png' border='0' width='128' height='128' align="absmiddle">
+		</td>
+		<td style="height: 33px; width: 201px;">
+		</td>
+	</tr>
+
+	<tr>
+		<td valign="left" style="height: 33px; width: 15%; text-align: left;">
+			<h2><TMPL_VAR MENU.IT></h2>
+		</td>
+	</tr>
+	
+	<tr>
+	<td colspan=3 valign="middle" style="height: 36px">
+		<font size="-1"><TMPL_VAR MENU.IT_TEXT></font>
+	</td>
+	</tr>
+<tr>
+
+<!-- Basiskonfiguration-->
+
+		<table>
+			<td valign="left" style="height: 33px; width: 4%; vertical-align: bottom; text-align: left;">
+				<label id="lip"><TMPL_VAR MENU.LABEL_IT></label>
+			</td>
+			<td valign="left" style="height: 33px; width: 11%; text-align: left;">
+				<input id="dyndns" name="dyndns" type="text" class="textfield" placeholder="<TMPL_VAR MENU.DYN_DNS_PROVIDER>" value="<TMPL_VAR CONNECTION.dyndns>"
+					data-validation-rule="special:domainname_or_ipaddr"
+					data-validation-error-msg="<TMPL_VAR VALIDATION.DYNDNS>">
+			</td>
+			<td valign="left" style="height: 33px; width: 6%; text-align: left;">			
+				<input id="port" name="port" type="text" class="textfield" placeholder="TCP Port" value="<TMPL_VAR CONNECTION.port>"
+					data-validation-rule="special:port"
+					data-validation-error-msg="<TMPL_VAR VALIDATION.DYNDNS_PORT>">
+			</td>
+			<td valign="right" style="height: 33px; width: 4%; vertical-align: bottom; text-align: left;">
+			<label id="lip"><TMPL_VAR MENU.LABEL_LOCATION></label>
+			</td>
+			<td valign="left" style="height: 33px; width: 5%; text-align: left;">
+			<input id="location" name="location" type="text" class="textfield" placeholder="<TMPL_VAR MENU.LOCATION>" value="<TMPL_VAR LOCATION.location>"
+					data-validation-rule="^([A-Za-z0-9]){4,20}$"
+					data-validation-error-msg="<TMPL_VAR VALIDATION.ERROR_LOCATION>">			
+			</td>
+			<td valign="left" style="height: 33px; width: 3%; text-align: left;">
+			<input id="radius" name="radius" type="text" class="textfield" placeholder="<TMPL_VAR MENU.RADIUS>" value="<TMPL_VAR LOCATION.radius>"
+					data-validation-rule="special:digits"
+					data-validation-error-msg="<TMPL_VAR VALIDATION.ERROR_RADIUS>">			
+			</td>
+			<td valign="left" style="height: 33px; width: 5%; text-align: left;">
+			<input id="latitude" name="latitude" type="text" class="textfield" placeholder="<TMPL_VAR MENU.LATITUDE>" value="<TMPL_VAR LOCATION.latitude>"
+					data-validation-rule="^[0-9]+(\.[0-9]{1,11})?$"
+					data-validation-error-msg="<TMPL_VAR VALIDATION.ERROR_LATITUDE>">			
+			</td>
+			<td valign="left" style="height: 33px; width: 5%; text-align: left;">
+			<input id="longitude" name="longitude" type="text" class="textfield" placeholder="<TMPL_VAR MENU.LONGITUDE>" value="<TMPL_VAR LOCATION.longitude>"
+					data-validation-rule="^[0-9]+(\.[0-9]{1,11})?$"
+					data-validation-error-msg="<TMPL_VAR VALIDATION.ERROR_LONGITUDE>">			
+			</td>
+		</table>
+	</tr>
+	<hr/>
+
+<!-- End Basiskonfiguration-->
+
+	<tr>
+		<td valign="left" style="height: 33px; width: 15%; text-align: left;">
+			<h2><TMPL_VAR MENU.USER></h2>
+		</td>
+	</tr>
+	<tr>
+	<td colspan=3 valign="middle" style="height: 36px">
+		<font size="-1"><TMPL_VAR MENU.LOCATION_TEXT></font>
+	</td>
+	</tr>
+
+	
+<!-- End Header-->
+
+	
+
+<!-- Fields User-->
+				
+		</tr>
+			<table border=0 width="100%">
+				<tr>
+					<tr>
+						<table id="users" name="users" border=0 style="width: 50%">
+							<th align="center" style="width: 4%">
+							<img class='ico_delete' src='/plugins/<TMPL_VAR PLUGINDIR>/images/recycle-bin.png' align="center" border='0' width='24' height='24'></th>
+						    <th align="left" style="height: 33px; width: 22%;"><TMPL_VAR MENU.USERNAME></th>
+						    <th align="left" style="height: 33px; width: 4%;"><TMPL_VAR MENU.CONFIG_FILE></th>
+							<tbody>
+								<TMPL_VAR ROWSUSER>
+							</tbody>
+						</table>
+					</tr>
+				</tr>
+			</table>
+		</td>
+		<td style="height: 30px; width: 201px;">
+		</td>
+		<td style="height: 30px; width: 24px;">
+		</td>
+	</tr>
+</table>
+
+<!-- End Fields User-->
+
+<!-- Fields New line-->
+
+<tr>
+	<p>
+		<!--<center>-->
+			<td valign="middle" style="height: 33px; width: 127%; text-align: middle;">
+				<INPUT type="button" value="<TMPL_VAR BUTTON.ADD_USER>" data-inline="true" data-mini="true" data-icon="plus" onclick="AddUser()">
+			</td>
+		<!--center>-->
+	</p>
+</tr>
+
+<!-- End Fields New line-->
+
+
+<hr/>
+</table>
+</div>
+<tr>
+<h3>&nbsp;</h3>
+</tr>
+<tr>
+<p>
+	<center>
+		<a id="btncancel" data-role="button" data-inline="true" data-mini="true" data-icon="delete" href="/admin/plugins/onwtracks/index.cgi"><TMPL_VAR BUTTON.CANCEL></a>
+		<button type="submit" form="main_form" name="btnsubmit" id="btnsubmit" data-role="button" data-inline="true" data-mini="true" data-icon="check"><TMPL_VAR BUTTON.SAVE></button>
+	</center>
+</p> 
+</tr>
+</form>
+</body>
+
+<script>
+
+// Function to add new User to config
+function AddUser() {
+
+  // Total number of User
+  var iteration = document.getElementById('countuser').value;
+  iteration = parseInt(iteration)
+
+  var tbl = document.getElementById('users');
+
+  // Del 1. row if there where no User
+  if ( iteration < 1 ) {
+    var row = tbl.deleteRow(-1);
+  }
+
+  var lastRow = tbl.rows.length;
+  iteration += 1;
+  document.getElementById("countuser").value = iteration;
+
+  // Add cells
+  var row = tbl.insertRow(lastRow);
+  var cellRight = row.insertCell(0);
+  cellRight.innerHTML = '<tr><td style="width: 4%"><INPUT type="checkbox" style="width: 100%" name="chkuser' + iteration + '" id="chkuser' + iteration + '" align="center"/></td>\n'
+  var cellRight = row.insertCell(1);
+  cellRight.innerHTML = '<td style="width: 22%"><input id="username' + iteration + '" name="username' + iteration + '" type="text" placeholder="<TMPL_VAR MENU.USER_LISTING>" value="" align="left" data-validation-error-msg="<TMPL_VAR VALIDATION.USER_NAME>" data-validation-rule="^([A-Za-z0-9]){3,20}" style="width: 100%;"></td>\n'
+  var cellRight = row.insertCell(2);
+  cellRight.innerHTML = '<td style="width: 4%"><input name="create' + iteration + '" id="create' + iteration + '" type="button" data-role="button" data-inline="true" data-mini="true" onclick="" data-icon="check" value="<TMPL_VAR BUTTON.NEW_CONFIG>"></td>\n'
+  			
+  // Recreate JQUERY styles
+  $("#main_form").trigger('create');
+}
+
+
+$(document).ready( function ()  {
+		var count = $('#users >tbody >tr').length;	
+		var i;
+		for (i = 1; i <= count; ++i) {
+			validate_enable('#username' + i + '');
+			validate_chk_object(['#username' + i + '']);
+		}
+		validate_enable('#dyndns');
+		validate_enable('#port');
+		validate_enable('#location');
+		validate_enable('#radius');
+		validate_enable('#latitude');
+		validate_enable('#longitude');
+		validate_chk_object(['#dyndns','#port','#location','#radius','#latitude','#longitude']);
+		$("#main_form").trigger('create');
+	});
+	
+
+	
+</script>
+
+
+</TMPL_IF>
+
+
+<TMPL_IF LOGFILES>
+<!-- form 'LOGFILES' START -->
+	<TMPL_VAR LOGLIST_HTML>
+<!-- form 'LOGFILES' END -->
+</TMPL_IF LOGFILES>
+
+
