@@ -43,6 +43,7 @@ my $helptemplate;
 our $content;
 our $template;
 our %navbar;
+our %weatherconfig;
 
 my $helptemplatefilename		= "help.html";
 my $languagefile 				= "owntracks.ini";
@@ -56,6 +57,19 @@ my $lbport						= lbwebserverport();
 my $log 						= LoxBerry::Log->new ( name => 'Owntracks UI', filename => $lbplogdir ."/". $pluginlogfile, append => 1, addtime => 1 );
 my $pcfg 						= new Config::Simple($lbpconfigdir . "/" . $pluginconfigfile);
 our $error_message				= "";
+
+##########################################################################
+# Set new config options for upgrade installations
+##########################################################################
+
+# latitude
+if ($pcfg->param("LOCATION.longitude") eq '')  {
+	$pcfg->param("LOCATION.longitude", "");
+}
+# longitude
+if ($pcfg->param("LOCATION.latitude") eq '')  {
+	$pcfg->param("LOCATION.latitude", "");
+}
 
 ##########################################################################
 # Read Settings
@@ -149,7 +163,7 @@ $template->param("PLUGINDIR" => $lbpplugindir);
 $template->param("LOGFILE" , $lbplogdir . "/" . $pluginlogfile);
 
 ##########################################################################
-# check if config files exist and they are readable
+# check if config files exist and is readable
 ##########################################################################
 
 # Check if owntracks.cfg file exist
@@ -164,17 +178,64 @@ if (!-r $lbpconfigdir . "/" . $pluginconfigfile)
 }
 
 ##########################################################################
+# check if weather4lox config files exist and is readable
+##########################################################################
+
+# Check if weather4lox.cfg file exist and parse in
+if ($pcfg->param("LOCATION.longitude") eq '' or $pcfg->param("LOCATION.latitude") eq '')  
+{
+	if (-r $lbhomedir . "/config/plugins/weather4lox/weather4lox.cfg") 
+	{
+		my $wcfg = new Config::Simple($lbhomedir . "/config/plugins/weather4lox/weather4lox.cfg");
+		LOGDEB "The weather4lox config file has been loaded";
+		# import longitude
+		if (!$wcfg->param("DARKSKY.COORDLONG") eq "")   {
+			$pcfg->param("LOCATION.longitude", $wcfg->param("DARKSKY.COORDLONG"));
+			LOGDEB "Longitude has been passed over from weather4lox Darksky settings";
+		} elsif (!$wcfg->param("WEATHERBIT.COORDLONG") eq "")   {
+			$pcfg->param("LOCATION.longitude", $wcfg->param("WEATHERBIT.COORDLONG"));
+			
+			LOGDEB "Longitude has been passed over from weather4lox Weatherbit settings";
+		} elsif (!$wcfg->param("WUNDERGROUND.COORDLONG") eq "")   {
+			$pcfg->param("LOCATION.longitude", $wcfg->param("WUNDERGROUND.COORDLONG"));
+			LOGDEB "Longitude has been passed over from weather4lox Wunderground settings";
+		}
+		# import latitude
+		if (!$wcfg->param("DARKSKY.COORDLAT") eq "")   {
+			$pcfg->param("LOCATION.latitude", $wcfg->param("DARKSKY.COORDLAT"));
+			LOGDEB "Latitude has been passed over from weather4lox Darksky settings";
+		} elsif (!$wcfg->param("WEATHERBIT.COORDLAT") eq "")   {
+			$pcfg->param("LOCATION.latitude", $wcfg->param("WEATHERBIT.COORDLAT"));
+			LOGDEB "Latitude has been passed over from weather4lox Weatherbit settings";
+		} elsif (!$wcfg->param("WUNDERGROUND.COORDLAT") eq "")   {
+			$pcfg->param("LOCATION.latitude", $wcfg->param("WUNDERGROUND.COORDLAT"));
+			LOGDEB "Latitude has been passed over from weather4lox Wunderground settings";
+		}
+		$pcfg->param("LOCATION.locationdata" => "true");
+		$pcfg->save() or &error;
+		LOGDEB "Data from weather4lox data has been saved";
+	} else {
+		LOGDEB "No geo location data found on your LoxBerry";
+		$pcfg->param("LOCATION.locationdata" => "false");
+		$pcfg->save() or &error;
+	}
+	
+}
+
+##########################################################################
 # Main program
 ##########################################################################
 
 
-#our %navbar;
 $navbar{10}{Name} = "$SL{'BASIC.NAVBAR_FIRST'}";
 $navbar{10}{URL} = './index.cgi';
 
-$navbar{20}{Name} = "$SL{'BASIC.NAVBAR_SECOND'}";
-$navbar{20}{URL} = 'https://www.google.com/maps';
-$navbar{20}{target} = '_blank';
+if ($pcfg->param("LOCATION.longitude") eq '' or $pcfg->param("LOCATION.latitude") eq '')  
+{
+	$navbar{20}{Name} = "$SL{'BASIC.NAVBAR_SECOND'}";
+	$navbar{20}{URL} = 'https://www.google.com/maps';
+	$navbar{20}{target} = '_blank';
+}
 
 $navbar{30}{Name} = "$SL{'BASIC.NAVBAR_THIRD'}";
 $navbar{30}{URL} = 'http://www.loxberry.de';
@@ -236,6 +297,11 @@ sub form {
 	LOGDEB "$countuser User has been loaded.";
 	$rowsuser .= "<input type='hidden' id='countuser' name='countuser' value='$countuser'>\n";
 	$template->param("ROWSUSER", $rowsuser);
+		
+	#$content = "@{[%weatherconfig]}";
+	#$content = $wcfg;
+	#print_test($content);
+	#exit;
 	
 	printtemplate();
 	exit;
