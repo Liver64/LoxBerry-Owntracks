@@ -13,9 +13,8 @@ use CGI qw( :standard);
 use LWP::Simple;
 use JSON qw( decode_json );
 use utf8;
-#use warnings;
-#use strict;
-#use Data::Dumper;
+use warnings;
+use strict;
 #no strict "refs"; # we need it for template system
 
 ##########################################################################
@@ -31,11 +30,8 @@ $SIG{__DIE__} = sub { our @reason = @_ };
 # Variables
 ##########################################################################
 
-my $namef;
-my $value;
-my %query;
 my $template_title;
-my $error;
+#my $error;
 my $saveformdata = 0;
 my $do = "form";
 my $helplink;
@@ -43,7 +39,6 @@ my $helptemplate;
 our $content;
 our $template;
 our %navbar;
-our %weatherconfig;
 
 my $helptemplatefilename		= "help.html";
 my $languagefile 				= "owntracks.ini";
@@ -52,24 +47,11 @@ my $successtemplatefilename 	= "success.html";
 my $errortemplatefilename 		= "error.html";
 my $pluginconfigfile 			= "owntracks.cfg";
 my $pluginlogfile				= "owntracks.log";
-my $lbip 						= LoxBerry::System::get_localip();
-my $lbport						= lbwebserverport();
+#my $lbip 						= LoxBerry::System::get_localip();
+#my $lbport						= lbwebserverport();
 my $log 						= LoxBerry::Log->new ( name => 'Owntracks UI', filename => $lbplogdir ."/". $pluginlogfile, append => 1, addtime => 1 );
 my $pcfg 						= new Config::Simple($lbpconfigdir . "/" . $pluginconfigfile);
 our $error_message				= "";
-
-##########################################################################
-# Set new config options for upgrade installations
-##########################################################################
-
-# latitude
-if ($pcfg->param("LOCATION.longitude") eq '')  {
-	$pcfg->param("LOCATION.longitude", "");
-}
-# longitude
-if ($pcfg->param("LOCATION.latitude") eq '')  {
-	$pcfg->param("LOCATION.latitude", "");
-}
 
 ##########################################################################
 # Read Settings
@@ -97,12 +79,6 @@ LOGSTART "Owntracks UI started";
 $saveformdata = defined $R::saveformdata ? $R::saveformdata : undef;
 $do = defined $R::do ? $R::do : "form";
 
-
-##########################################################################
-# Init Main Template
-##########################################################################
-inittemplate();
-
 ##########################################################################
 # Set LoxBerry SDK to debug in plugin 
 ##########################################################################
@@ -115,7 +91,7 @@ if($log->loglevel() eq "7") {
 }
 
 ##########################################################################
-# Various checks
+# Template preparation
 ##########################################################################
 
 # preparing error template;
@@ -143,27 +119,11 @@ my $successtemplate = 	HTML::Template->new(
 						);
 my %SUC = LoxBerry::System::readlanguage($successtemplate, $languagefile);
 
-
-##########################################################################
-# Language Settings
-##########################################################################
-
-$template->param("LBHOSTNAME", lbhostname());
-$template->param("LBLANG", $lblang);
-#$template->param("SELFURL", $ENV{REQUEST_URI});
-
-LOGDEB "Read main settings from " . $languagefile . " for language: " . $lblang;
-
-#************************************************************************
-
-# übergibt Plugin Verzeichnis an HTML
-$template->param("PLUGINDIR" => $lbpplugindir);
-
 # übergibt Log Verzeichnis und Dateiname an HTML
-$template->param("LOGFILE" , $lbplogdir . "/" . $pluginlogfile);
+#$template->param("LOGFILE" , $lbplogdir . "/" . $pluginlogfile);
 
 ##########################################################################
-# check if config files exist and is readable
+# Check Config file
 ##########################################################################
 
 # Check if owntracks.cfg file exist
@@ -171,14 +131,32 @@ if (!-r $lbpconfigdir . "/" . $pluginconfigfile)
 {
 	LOGCRIT "Plugin config file does not exist";
 	$error_message = $ERR{'ERRORS.ERR_CHECK_CONFIG_FILE'};
-	notify($lbpplugindir, "Owntracks UI ", "ERRORS.ERR_CHECK_CONFIG_FILE", 1);
+	notify($lbpplugindir, "Owntracks UI ", $ERR{'ERRORS.ERR_CHECK_CONFIG_FILE'}, 1);
 	&error; 
 } else {
 	LOGDEB "The Owntracks config file has been loaded";
 }
 
+
 ##########################################################################
-# check if weather4lox config files exist and is readable
+# Initiate Main Template
+##########################################################################
+inittemplate();
+
+
+##########################################################################
+# Some Settings
+##########################################################################
+
+$template->param("LBHOSTNAME", lbhostname());
+$template->param("LBLANG", $lblang);
+$template->param("PLUGINDIR" => $lbpplugindir);
+
+LOGDEB "Read main settings from " . $languagefile . " for language: " . $lblang;
+
+
+##########################################################################
+# check if weather4lox is installed and parse data
 ##########################################################################
 
 # Check if weather4lox.cfg file exist and parse in
@@ -223,11 +201,12 @@ if ($pcfg->param("LOCATION.longitude") eq '' or $pcfg->param("LOCATION.latitude"
 	LOGDEB "Location data used from Plugin config";
 }
 
+
 ##########################################################################
 # Main program
 ##########################################################################
 
-
+# Navbar
 $navbar{10}{Name} = "$SL{'BASIC.NAVBAR_FIRST'}";
 $navbar{10}{URL} = './index.cgi';
 
@@ -242,7 +221,10 @@ $navbar{30}{Name} = "$SL{'BASIC.NAVBAR_THIRD'}";
 $navbar{30}{URL} = 'http://www.loxberry.de';
 $navbar{30}{target} = '_blank';
 
-$navbar{90}{Name} = "$SL{'BASIC.NAVBAR_FOURTH'}";
+$navbar{40}{Name} = "$SL{'BASIC.NAVBAR_FOURTH'}";
+$navbar{40}{URL} = './tracking.cgi';
+
+$navbar{90}{Name} = "$SL{'BASIC.NAVBAR_FIVETH'}";
 $navbar{90}{URL} = './index.cgi?do=logfiles';
 
 if ($R::saveformdata) {
@@ -270,14 +252,9 @@ exit;
 # Form-Sub
 #####################################################
 
-sub form {
-
-
-	# fill saved values into form
-	
-	# *******************************************************************************************************************
+sub form 
+{
 	# User einlesen
-	
 	our $countuser = 0;
 	our $rowsuser;
 	
@@ -318,6 +295,7 @@ sub save
 {
 	# Everything from Forms
 	
+	# declaration of variables
 	my $i;
 	my $countuser = "$R::countuser";
 		
@@ -328,11 +306,12 @@ sub save
 	
 	$pcfg->param("CONNECTION.dyndns", "$R::dyndns");
 	$pcfg->param("CONNECTION.port", "$R::port");
+	$pcfg->param("CONNECTION.tls", "$R::tls");
 	$pcfg->param("LOCATION.location", "$R::location");
 	$pcfg->param("LOCATION.radius", "$R::radius");
 	$pcfg->param("LOCATION.latitude", "$R::latitude");
 	$pcfg->param("LOCATION.longitude", "$R::longitude");
-	
+		
 	# save all user
 	for ($i = 1; $i <= $countuser; $i++) {
 		if ( param("chkuser$i") ) { # if user should be deleted
@@ -345,7 +324,7 @@ sub save
 	$pcfg->save() or &error;
 	LOGDEB "User has been saved.";
 	
-	LOGOK "All settings has been saved successful";
+	LOGOK "All settings has been saved";
 	
 	#$content = $server_endpoint;
 	#print_test($content);

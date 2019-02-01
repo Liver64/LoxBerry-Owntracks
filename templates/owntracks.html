@@ -15,17 +15,13 @@
 
 <table class="formtable" border="0" width="100%" cellpadding="10">
 	<tr>
-		<td valign="middle" style="height: 33px; width: 25%; text-align: center;">
-			<h1 style="width: 100%"><TMPL_VAR BASIC.PLUGIN_NAME></h1>
-		<td style="height: 33px; text-align: center; width: 727px;">
-			<img class='ico_owntracks' src='/plugins/<TMPL_VAR PLUGINDIR>/images/owntracks_128.png' border='0' width='128' height='128' align="absmiddle">
-		</td>
-		<td style="height: 33px; width: 201px;">
-		</td>
+		<div class="wide">
+		<img width="64" height="64" src="/plugins/<TMPL_VAR PLUGINDIR>/images/owntracks_64.png" alt="">
+		<TMPL_VAR BASIC.PLUGIN_NAME>
+		</div>
 	</tr>
-
 	<tr>
-		<td valign="left" style="height: 33px; width: 15%; text-align: left;">
+		<td valign="left" style="height: 33px; width: 32%; text-align: left;">
 			<h2><TMPL_VAR MENU.IT></h2>
 		</td>
 	</tr>
@@ -58,6 +54,19 @@
 					data-validation-rule="special:port"
 					data-validation-error-msg="<TMPL_VAR VALIDATION.DYNDNS_PORT>">
 			</td>
+			
+			<!--<td valign="left" style="height: 33px; width: 4%; vertical-align: bottom; text-align: left;">			
+				<fieldset>
+					<select id="tls" name="tls" data-role="flipswitch" style="width: 34px">
+						<option <TMPL_VAR TLS1> value="false"><TMPL_VAR BUTTON.FLIPSWITCH_OFF></option>
+						<option <TMPL_VAR TLS2> value="true"><TMPL_VAR BUTTON.FLIPSWITCH_ON></option>
+					</select>
+				</fieldset>
+				<script>
+					$('#tls').val('<TMPL_VAR CONNECTION.tls>')
+				</script>
+			</td>-->
+			
 			<td valign="right" style="height: 33px; width: 4%; vertical-align: bottom; text-align: left;">
 			<label id="lip"><TMPL_VAR MENU.LABEL_LOCATION></label>
 			</td>
