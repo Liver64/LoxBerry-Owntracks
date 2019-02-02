@@ -218,8 +218,7 @@ if ($pcfg->param("LOCATION.longitude") eq '' or $pcfg->param("LOCATION.latitude"
 }
 
 $navbar{30}{Name} = "$SL{'BASIC.NAVBAR_THIRD'}";
-$navbar{30}{URL} = 'http://www.loxberry.de';
-$navbar{30}{target} = '_blank';
+$navbar{30}{URL} = './mqtt_output.cgi';
 
 $navbar{40}{Name} = "$SL{'BASIC.NAVBAR_FOURTH'}";
 $navbar{40}{URL} = './tracking.cgi';

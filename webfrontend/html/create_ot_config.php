@@ -54,6 +54,7 @@ $topic_conv_leave = "leave=0";									// conversion for leave
 $last_mqtt_json_data = "/run/shm/mqttgateway_topics.json";		// path to MQTT JSON data
 $mqtt_config = "$lbhomedir/config/plugins/mqttgateway/mqtt.json";			// path to MQTT configuration
 $mqtt_cred = "$lbhomedir/config/plugins/mqttgateway/cred.json";				// path to MQTT login credentials
+$datafile = "/dev/shm/mqttgateway_topic.json";
 
 echo '<PRE>';
 
@@ -68,12 +69,16 @@ $plugindata = LBSystem::plugindata();
 
 LOGSTART("PHP started");
 
+$ot_topics = get_mqtt_cred($datafile);
+print_r($ot_topics);
+exit;
 $cred = get_mqtt_cred($mqtt_cred);
 $config = get_mqtt_config($mqtt_config);
 # check MQTT config and update if needed
 update_mqtt_config($topic, $topic_conv_enter, $topic_conv_leave);
-$ot_config_file = prepare_config_file($ot_template_file);
-plugin_config();
+$ot_config_file = read_tmpl_config_file($ot_template_file);
+$tmp_ot = plugin_config();
+prepare_config_file($ot_config_file, $tmp_ot, $cred);
 
 
 # get credentials
@@ -125,7 +130,7 @@ function update_mqtt_config($topic, $topic_conv_enter, $topic_conv_leave)   {
 }
 
 # read config template file
-function prepare_config_file($FileName)  {
+function read_tmpl_config_file($FileName)  {
 	
 	$ot_config_file = File_Get_Array_From_JSON($FileName, $zip=false);
 	//print_r($ot_config_file);
@@ -148,6 +153,38 @@ function plugin_config()  {
 	}
 	//print_r($tmp_ot);
 	return $tmp_ot;
+}
+
+# prepare and save OT config file
+function prepare_config_file($ot_config_file, $tmp_ot, $cred)  {
+	
+	//print_r($cred);
+	//print_r($tmp_ot);
+	//print_r($ot_config_file);
+	$ot_config_file['host'] = $tmp_ot['CONNECTION']['dyndns'];
+	$ot_config_file['port'] = $tmp_ot['CONNECTION']['port'];
+	$ot_config_file['username'] = $cred['Credentials']['brokeruser'];
+	$ot_config_file['password'] = $cred['Credentials']['brokerpass'];
+	$ot_config_file['deviceId'] = $tmp_ot['USER']['name'][3];
+	$ot_config_file['waypoints'][0]['lat'] = $tmp_ot['LOCATION']['latitude'];
+	$ot_config_file['waypoints'][0]['lon'] = $tmp_ot['LOCATION']['longitude'];
+	$ot_config_file['waypoints'][0]['rad'] = $tmp_ot['LOCATION']['radius'];
+	$ot_config_file['waypoints'][0]['desc'] = $tmp_ot['LOCATION']['location'];
+	$ot_config_file['waypoints'][0]['tst'] = time();
+	LOGGING("Owntracks App configfile has been created", 7);
+	// print_r($ot_config_file);
+	$FileNameOT = LBPDATADIR."/OT_".$tmp_ot['USER']['name'][3]."_".$tmp_ot['LOCATION']['location']."_".$tmp_ot['LOCATION']['radius']."_".date("Ymd").".otrc";
+	//echo $FileNameOT;
+	File_Put_Array_As_JSON($FileNameOT, $ot_config_file, $zip=false);
+	LOGGING("Owntracks App configfile has been saved to data folder", 5);
+	//return $ot_config_file;
+}
+
+# get credentials
+function topics($FileName)  {
+	$cred = File_Get_Array_From_JSON($FileName, $zip=false);
+	//print_r($cred);
+	return $ot_topics;
 }
 
 function shutdown()

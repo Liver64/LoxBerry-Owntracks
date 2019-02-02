@@ -30,7 +30,11 @@ $SIG{__DIE__} = sub { our @reason = @_ };
 # Variables
 ##########################################################################
 
+#my $namef;
+#my $value;
+#my %query;
 my $template_title;
+my $error;
 my $saveformdata = 0;
 my $do = "form";
 my $helplink;
@@ -38,14 +42,15 @@ my $helptemplate;
 our $content;
 our $template;
 our %navbar;
+#our %weatherconfig;
 
 my $helptemplatefilename		= "help.html";
 my $languagefile 				= "owntracks.ini";
-my $maintemplatefilename	 	= "tracking.html";
+my $maintemplatefilename	 	= "mqtt_output.html";
 my $pluginconfigfile 			= "owntracks.cfg";
 my $pluginlogfile				= "owntracks.log";
 my $lbip 						= LoxBerry::System::get_localip();
-#my $lbport						= lbwebserverport();
+my $lbport						= lbwebserverport();
 my $log 						= LoxBerry::Log->new ( name => 'Owntracks UI', filename => $lbplogdir ."/". $pluginlogfile, append => 1, addtime => 1 );
 my $pcfg 						= new Config::Simple($lbpconfigdir . "/" . $pluginconfigfile);
 our $error_message				= "";
@@ -67,7 +72,7 @@ my $lbversion = LoxBerry::System::lbversion();
 my $cgi = CGI->new;
 $cgi->import_names('R');
 
-LOGSTART "Owntracks UI Tracking started";
+LOGSTART "Owntracks UI started";
 
 #########################################################################
 # Parameter
@@ -157,10 +162,86 @@ exit;
 
 sub form 
 {
+	topics_form();
 	printtemplate();
 	exit;
 }
 
+
+########################################################################
+# Topics Form 
+########################################################################
+sub topics_form
+{
+	require "$lbhomedir/bin/plugins/mqttgateway/libs/LoxBerry/JSON/JSONIO.pm";
+	require POSIX;
+	
+	#my $datafile = "/dev/shm/mqttgateway_topic.json";
+	my $datafile = "/dev/shm/mqttgateway_topics.json";
+	my $relayjsonobj = LoxBerry::JSON::JSONIO->new();
+	my $relayjson = $relayjsonobj->open(filename => $datafile);
+	my $http_table;
+	my $http_count;
+	my $udp_count;
+	my $udp_table;
+	my $topic;
+	
+		
+	# HTTP
+	$http_count = 0;
+	$http_table .= qq { <table class="topics_table_http" id="http_table" name="http_table" data-filter="true"> };
+	$http_table .= qq { <thead> };
+	$http_table .= qq { <tr> };
+	$http_table .= qq { <th>Miniserver Virtual Input</th> };
+	$http_table .= qq { <th>Last value</th> };
+	$http_table .= qq { <th>Last submission</th> };
+	$http_table .= qq { </tr> };
+	$http_table .= qq { </thead> };
+	$http_table .= qq { <tbody> };
+	
+	foreach $topic (sort keys %{$relayjson->{http}}) {
+		$http_count++;
+		$http_table .= qq { <tr> };
+		$http_table .= qq { <td><font color="blue">$topic</font></td> };
+		$http_table .= qq { <td>$relayjson->{http}{$topic}{message}</td> };
+		$http_table .= qq { <td> } . POSIX::strftime('%d.%m.%Y %H:%M:%S', localtime($relayjson->{http}{$topic}{timestamp})) . qq { </td> };
+		$http_table .= qq { </tr> };
+	}
+	$http_table .= qq { </tbody> };
+	$http_table .= qq { </table> };
+	
+	$template->param("http_table", $http_table);
+	#$template->param("http_count", $http_count);
+	
+	
+	# UDP
+	$udp_count = 0;
+	$udp_table .= qq { <table class="topics_table_udp" id="udp_table" name="udp_table" data-filter="true"> };
+	$udp_table .= qq { <thead> };
+	$udp_table .= qq { <tr> };
+	$udp_table .= qq { <th>Miniserver UDP</th> };
+	$udp_table .= qq { <th>Last value</th> };
+	$udp_table .= qq { <th>Last submission</th> };
+	$udp_table .= qq { </tr> };
+	$udp_table .= qq { </thead> };
+	$udp_table .= qq { <tbody> };
+	
+	foreach $topic (sort keys %{$relayjson->{udp}}) {
+		$udp_count++;
+		$udp_table .= qq { <tr> };
+		$udp_table .= qq { <td><font color="blue">$topic=$relayjson->{udp}{$topic}{message}</font></td> };
+		$udp_table .= qq { <td>$relayjson->{udp}{$topic}{message}</td> };
+		$udp_table .= qq { <td> } . POSIX::strftime('%d.%m.%Y %H:%M:%S', localtime($relayjson->{udp}{$topic}{timestamp})) . qq { </td> };
+		$udp_table .= qq { </tr> };
+	}
+	$udp_table .= qq { </tbody> };
+	$udp_table .= qq { </table> };
+	
+	$template->param("udp_table", $udp_table);
+	#$template->param("udp_count", $udp_count);
+	
+	
+}
 
 
 ##########################################################################
