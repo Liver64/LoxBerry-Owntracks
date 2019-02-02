@@ -10,6 +10,10 @@
 
 // ToDo
 
+// filter only owntracks topics for HTML output_add_rewrite_var
+// pass Name from UI to PHP to create config file
+// add time to config file name
+
 header('Content-Type: text/html; charset=utf-8');
 
 require_once "loxberry_system.php";
@@ -69,8 +73,7 @@ $plugindata = LBSystem::plugindata();
 
 LOGSTART("PHP started");
 
-$ot_topics = get_mqtt_cred($datafile);
-print_r($ot_topics);
+$ot_topics = topics($datafile);
 exit;
 $cred = get_mqtt_cred($mqtt_cred);
 $config = get_mqtt_config($mqtt_config);
@@ -180,10 +183,10 @@ function prepare_config_file($ot_config_file, $tmp_ot, $cred)  {
 	//return $ot_config_file;
 }
 
-# get credentials
+# get topics
 function topics($FileName)  {
-	$cred = File_Get_Array_From_JSON($FileName, $zip=false);
-	//print_r($cred);
+	$ot_topics = File_Get_Array_From_JSON($FileName, $zip=false);
+	//print_r($ot_topics);
 	return $ot_topics;
 }
 

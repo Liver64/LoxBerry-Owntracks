@@ -221,10 +221,75 @@ $(document).ready( function ()  {
 		$("#main_form").trigger('create');
 	});
 	
-
-	
 </script>
 </TMPL_IF>
+
+<TMPL_IF COMMAND>
+
+<div class="wide">
+	<img width="64" height="64" src="/plugins/<TMPL_VAR PLUGINDIR>/images/owntracks_64.png" alt="">
+	<TMPL_VAR BASIC.PLUGIN_NAME>
+		</div>
+			<table border=0>
+				<tr>
+					<td align="left" style="width: 1258px">
+							<tr>
+								<td valign="left" style="height: 36px; width: 100%;">
+									<font size="+1"><TMPL_VAR COMMAND.HTTP_MS></font>
+								</td>
+							</tr>
+							<tr>
+								<td valign="left" style="height: 36px; width: 100%;">
+									<font size="-1"><TMPL_VAR COMMAND.HTTP_MS_TEXT></font>
+								</td>
+							</tr>
+							<TMPL_VAR http_table>
+							<br/>
+							<hr/>
+							<tr>
+								<td valign="left" style="height: 36px; width: 100%;">
+									<font size="+1"><TMPL_VAR COMMAND.UDP_MS></font>
+								</td>
+							</tr>
+							<tr>
+							<br/><br/>
+								<td valign="left" style="height: 36px; width: 100%;">
+									<font size="-1"><TMPL_VAR COMMAND.UDP_MS_TEXT></font>
+								</td>
+							</tr>
+							<TMPL_VAR udp_table>
+							<br/>
+							<hr/>
+					</td>
+				</tr>
+			</table>
+</TMPL_IF>
+
+
+<TMPL_IF TRACKING>
+<center>
+			<table border=0>
+				<tr>
+					<td align="center">
+						<h2><FONT>coming soon ;-)</FONT></h2>
+						<p>
+							<TMPL_VAR ERR_MESSAGE>
+							<br />
+							<br />
+						</p>
+					</td>
+				</tr>
+				<tr>
+					<td align="center">
+						<p>
+							<!--<a id="btnback" onclick="location.href='/admin/system/index.cgi'" class="ui-btn ui-btn-inline ui-mini ui-corner-all ui-btn-icon-left ui-icon-delete"><TMPL_VAR ERR_BUTTON_BACK></a>-->
+						</p>
+					</td>
+				</tr>
+			</table>
+		</center>
+</TMPL_IF>
+
 
 
 <TMPL_IF LOGFILES>
