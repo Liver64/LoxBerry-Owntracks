@@ -42,7 +42,6 @@ our %navbar;
 my $helptemplatefilename		= "help.html";
 my $languagefile 				= "owntracks.ini";
 my $maintemplatefilename	 	= "owntracks.html";
-my $successtemplatefilename 	= "success.html";
 my $errortemplatefilename 		= "error.html";
 my $pluginconfigfile 			= "owntracks.cfg";
 my $pluginlogfile				= "owntracks.log";
@@ -110,19 +109,6 @@ my $errortemplate = HTML::Template->new(
 					debug => 1,
 					);
 my %ERR = LoxBerry::System::readlanguage($errortemplate, $languagefile);
-
-
-# preparing success template;
-my $successtemplate = 	HTML::Template->new(
-						filename => $lbptemplatedir . "/" . $successtemplatefilename,
-						global_vars => 1,
-						loop_context_vars => 1,
-						die_on_bad_params=> 0,
-						associate => $cgi,
-						%htmltemplate_options,
-						debug => 1,
-						);
-my %SUC = LoxBerry::System::readlanguage($successtemplate, $languagefile);
 
 # übergibt Log Verzeichnis und Dateiname an HTML
 #$template->param("LOGFILE" , $lbplogdir . "/" . $pluginlogfile);
@@ -285,8 +271,9 @@ sub form
 			$countuser++;
 			my @fields = $pcfg->param($key);
 			$rowsuser .= "<tr><td style='width: 4%;'><INPUT type='checkbox' style='width: 100%' name='chkuser$countuser' id='chkuser$countuser' align='left'/></td>\n";
-			$rowsuser .= "<td style='width: 22%'><input id='username$countuser' name='username$countuser' type='text' placeholder='$SL{'MENU.USER_LISTING'}' value='$fields[0]' align='left' data-validation-error-msg='$SL{'VALIDATION.USER_NAME'}' data-validation-rule='^([A-Za-z0-9]){3,20}' style='width: 100%;'></td>\n";
-			$rowsuser .= "<td style='width: 4%'><input name='create$countuser' id='create$countuser' type='button' data-role='button' data-inline='true' data-mini='true' onclick='' data-icon='check' value='$SL{'BUTTON.NEW_CONFIG'}'></td>\n";
+			$rowsuser .= "<td style='width: 22%'><input id='username$countuser' name='username$countuser' type='text' class='uname' placeholder='$SL{'MENU.USER_LISTING'}' value='$fields[0]' align='left' data-validation-error-msg='$SL{'VALIDATION.USER_NAME'}' data-validation-rule='^([äöüÖÜßÄ A-Za-z0-9\ ]){1,20}' style='width: 100%;'></td>\n";
+			$rowsuser .= "<td style='width: 4%'><input name='create$countuser' id='create$countuser' class='createconfbutton' type='button' data-role='button' data-inline='true' data-mini='true' onclick='' data-icon='check' value='$SL{'BUTTON.NEW_CONFIG'}'></td>\n";
+			$rowsuser .= "<td style='width: 68%'><div id='response$countuser'></div></td>\n";
 		}
 	}
 
@@ -323,7 +310,7 @@ sub save
 	
 	$pcfg->param("CONNECTION.dyndns", "$R::dyndns");
 	$pcfg->param("CONNECTION.port", "$R::port");
-	$pcfg->param("CONNECTION.tls", "$R::tls");
+	#$pcfg->param("CONNECTION.tls", "$R::tls");
 	$pcfg->param("LOCATION.location", "$R::location");
 	$pcfg->param("LOCATION.radius", "$R::radius");
 	$pcfg->param("LOCATION.latitude", "$R::latitude");
@@ -335,29 +322,22 @@ sub save
 			$pcfg->delete( "USER.name" . "[$i]" );
 		} else { # save
 			my $username = param("username$i");
-			$pcfg->param( "USER.name" . "[$i]", "\"$username\"");
+			$pcfg->param( "USER.name" . "[$i]", "$username");
 		}
 	}
 	$pcfg->save() or &error;
 	LOGDEB "User has been saved.";
-	
 	LOGOK "All settings has been saved";
 	
 	#$content = $server_endpoint;
 	#print_test($content);
 	#exit;
 	
-	my $lblang = lblanguage();
-	$template_title = "$SL{'BASIC.MAIN_TITLE'}: v$sversion";
-	LoxBerry::Web::lbheader($template_title, $helplink, $helptemplatefilename);
-	$successtemplate->param('SAVE_ALL_OK'		, $SUC{'BUTTON.SAVE_ALL_OK'});
-	$successtemplate->param('SAVE_MESSAGE'		, $SUC{'BUTTON.SAVE_MESSAGE'});
-	$successtemplate->param('SAVE_BUTTON_OK' 	, $SUC{'BUTTON.SAVE_BUTTON_OK'});
-	$successtemplate->param('SAVE_NEXTURL'		, $ENV{REQUEST_URI});
-	print $successtemplate->output();
-	LoxBerry::Web::lbfooter();
+	# SAVE_MESSAGE
+	$template->param("SAVE" => $SL{'BUTTON.SAVE_MESSAGE'});
+	$template->param("FORM", "1");
+	&form;
 	exit;
-	
 }
 
 
@@ -382,7 +362,7 @@ sub topics_form
 		
 	# HTTP
 	$http_count = 0;
-	$http_table .= qq { <table class="topics_table_http" id="http_table" name="http_table" data-filter="true"> };
+	$http_table .= qq { <table class="topics_table_http" id="http_table" name="http_table" data-filter-reveal="true" data-filter-placeholder="$SL{'VALIDATION.SEARCH'}" data-filter="true"> };
 	$http_table .= qq { <thead> };
 	$http_table .= qq { <tr> };
 	$http_table .= qq { <th>Miniserver Virtual Input</th> };
@@ -409,7 +389,7 @@ sub topics_form
 	
 	# UDP
 	$udp_count = 0;
-	$udp_table .= qq { <table class="topics_table_udp" id="udp_table" name="udp_table" data-filter="true"> };
+	$udp_table .= qq { <table class="topics_table_udp" id="udp_table" name="udp_table" data-filter-reveal="true" data-filter-placeholder="$SL{'VALIDATION.SEARCH'}" data-filter="true"> };
 	$udp_table .= qq { <thead> };
 	$udp_table .= qq { <tr> };
 	$udp_table .= qq { <th>Miniserver UDP</th> };
@@ -454,13 +434,13 @@ sub tracking
 #####################################################
 
 sub error 
-{
+{	
 	$template_title = $ERR{'BASIC.MAIN_TITLE'} . ": v$sversion - " . $ERR{'BUTTON.ERR_TITLE'};
 	LoxBerry::Web::lbheader($template_title, $helplink, $helptemplatefilename);
 	$errortemplate->param('ERR_MESSAGE'		, $error_message);
 	$errortemplate->param('ERR_TITLE'		, $ERR{'BUTTON.ERR_TITLE'});
 	$errortemplate->param('ERR_BUTTON_BACK' , $ERR{'BUTTON.ERR_BUTTON_BACK'});
-	$successtemplate->param('ERR_NEXTURL'	, $ENV{REQUEST_URI});
+	$errortemplate->param('ERR_NEXTURL'	, $ENV{REQUEST_URI});
 	print $errortemplate->output();
 	LoxBerry::Web::lbfooter();
 	exit;

@@ -1,12 +1,15 @@
-<style>
+﻿<style>
 
 </style>
 
 <TMPL_IF FORM>
 
 <body>
+<!--<form method="post" name="main_form" id="main_form" accept-charset="utf-8" data-ajax="false" action="./index.cgi" onsubmit="return false;">-->
 <form method="post" name="main_form" id="main_form" accept-charset="utf-8" data-ajax="false" action="./index.cgi">
+
 <input type="hidden" name="saveformdata" value="1">
+
 <div class="form-group">
 
 <!-- Header-->
@@ -72,7 +75,7 @@
 			</td>
 			<td valign="left" style="height: 33px; width: 5%; text-align: left;">
 			<input id="location" name="location" type="text" class="textfield" placeholder="<TMPL_VAR MENU.LOCATION>" value="<TMPL_VAR LOCATION.location>"
-					data-validation-rule="^([A-Za-z0-9]){4,20}$"
+					data-validation-rule="^([äöüÖÜßÄ A-Za-z0-9\ ]){3,20}$"
 					data-validation-error-msg="<TMPL_VAR VALIDATION.ERROR_LOCATION>">			
 			</td>
 			<td valign="left" style="height: 33px; width: 3%; text-align: left;">
@@ -117,7 +120,7 @@
 			<table border=0 width="100%">
 				<tr>
 					<tr>
-						<table id="users" name="users" border=0 style="width: 50%">
+						<table id="users" name="users" border=0 style="width: 100%">
 							<th align="center" style="width: 4%">
 							<img class='ico_delete' src='/plugins/<TMPL_VAR PLUGINDIR>/images/recycle-bin.png' align="center" border='0' width='24' height='24'></th>
 						    <th align="left" style="height: 33px; width: 22%;"><TMPL_VAR MENU.USERNAME></th>
@@ -163,6 +166,12 @@
 	<center>
 		<a id="btncancel" data-role="button" data-inline="true" data-mini="true" data-icon="delete" href="/admin/plugins/onwtracks/index.cgi"><TMPL_VAR BUTTON.CANCEL></a>
 		<button type="submit" form="main_form" name="btnsubmit" id="btnsubmit" data-role="button" data-inline="true" data-mini="true" data-icon="check"><TMPL_VAR BUTTON.SAVE></button>
+		<div><br/>
+			<td colspan=3 valign="middle" style="height: 36px">
+				<font size="4" COLOR="green"><TMPL_VAR SAVE></font>
+			</td>
+			<div id="log"></div>
+		</div>
 	</center>
 </p> 
 </tr>
@@ -194,21 +203,26 @@ function AddUser() {
   var cellRight = row.insertCell(0);
   cellRight.innerHTML = '<tr><td style="width: 4%"><INPUT type="checkbox" style="width: 100%" name="chkuser' + iteration + '" id="chkuser' + iteration + '" align="center"/></td>\n'
   var cellRight = row.insertCell(1);
-  cellRight.innerHTML = '<td style="width: 22%"><input id="username' + iteration + '" name="username' + iteration + '" type="text" placeholder="<TMPL_VAR MENU.USER_LISTING>" value="" align="left" data-validation-error-msg="<TMPL_VAR VALIDATION.USER_NAME>" data-validation-rule="^([A-Za-z0-9]){3,20}" style="width: 100%;"></td>\n'
+  cellRight.innerHTML = '<td style="width: 22%"><input id="username' + iteration + '" name="username' + iteration + '" type="text" placeholder="<TMPL_VAR MENU.USER_LISTING>" value="" align="left" data-validation-error-msg="<TMPL_VAR VALIDATION.USER_NAME>" data-validation-rule="^([äöüÖÜßÄ A-Za-z0-9\ ]){1,20}" style="width: 100%;"></td>\n'
   var cellRight = row.insertCell(2);
-  cellRight.innerHTML = '<td style="width: 4%"><input name="create' + iteration + '" id="create' + iteration + '" type="button" data-role="button" data-inline="true" data-mini="true" onclick="" data-icon="check" value="<TMPL_VAR BUTTON.NEW_CONFIG>"></td>\n'
-  			
+  cellRight.innerHTML = '<td style="width: 4%"><font size="3" color="green"><TMPL_VAR BUTTON.SAVE_CONFIG_MESSAGE></font></td>\n'
+  console.log("New row inserted");
+			
   // Recreate JQUERY styles
   $("#main_form").trigger('create');
 }
 
 
 $(document).ready( function ()  {
-		var count = $('#users >tbody >tr').length;	
-		var i;
-		for (i = 1; i <= count; ++i) {
+		//var iteration = $('#users >tbody >tr').length;	
+		var iteration = document.getElementById('countuser').value;
+		iteration = parseInt(iteration)
+		iteration += 1;
+		for (i = 1; i < iteration; ++i) {
 			validate_enable('#username' + i + '');
 			validate_chk_object(['#username' + i + '']);
+			//alert('#username' + i + '');
+			console.log('#username' + i + '');
 		}
 		validate_enable('#dyndns');
 		validate_enable('#port');
@@ -219,7 +233,46 @@ $(document).ready( function ()  {
 		validate_chk_object(['#dyndns','#port','#location','#radius','#latitude','#longitude']);
 				
 		$("#main_form").trigger('create');
-	});
+		
+		
+		
+$("#users").on('click','.createconfbutton',function()  {
+         // get the current row value
+         var currentRow =  $(this).closest("tr"); 
+         var name = currentRow.find(".uname").val();
+         console.log("Name: " + name + " identified");
+                  
+ 		// get the current row index
+         var rowId = $(this).closest('tr').attr('rowIndex');
+	     rowId = $(this).closest('tr').prop('rowIndex');
+      	 //alert('You Clicked row: ' + rowId + ' using Name: ' + name);
+      	 console.log("rowIndex: " + rowId + " identified");
+
+        // show that something is loading
+        $('#response' + rowId +'').html("<font face='Arial' size='3' color='blue'><TMPL_VAR VALIDATION.WAIT_ANSWER></font>");
+        /*
+         * function(data){... - data contains the response from create_ot_config.php
+         */
+        console.log("trying to post...");
+        $.post('/plugins/<TMPL_VAR PLUGINDIR>/create_ot_config.php', 
+        	{ 
+        		//user_id: "143", 
+        		username: name
+        	}, 
+        	//console.log("trying to post...");
+        function(data) {
+            // show the response
+            $('#response' + rowId +'').html("<font face='Arial' size='3' color='green'>" + data + "</font>");
+            console.log("Succesfull posted Name: " + name + " from row: " + rowId);
+        }).fail(function() {
+        	// show error
+        	$('#response' + rowId +'').html("<font face='Arial' size='3' color='red'><TMPL_VAR ERRORS.ERR_POST></font>");
+        	console.log("Posting to PHP failed, please check input");
+        });
+    });
+});
+	
+	
 	
 </script>
 </TMPL_IF>

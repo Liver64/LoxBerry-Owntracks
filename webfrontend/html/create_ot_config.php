@@ -13,6 +13,7 @@
 // filter only owntracks topics for HTML output_add_rewrite_var
 // pass Name from UI to PHP to create config file
 // add time to config file name
+// re-number users after deletion
 
 header('Content-Type: text/html; charset=utf-8');
 
@@ -73,16 +74,20 @@ $plugindata = LBSystem::plugindata();
 
 LOGSTART("PHP started");
 
+# get data from POST
+$uname = ($_POST);
+
+
 $ot_topics = topics($datafile);
-exit;
 $cred = get_mqtt_cred($mqtt_cred);
 $config = get_mqtt_config($mqtt_config);
-# check MQTT config and update if needed
 update_mqtt_config($topic, $topic_conv_enter, $topic_conv_leave);
 $ot_config_file = read_tmpl_config_file($ot_template_file);
 $tmp_ot = plugin_config();
-prepare_config_file($ot_config_file, $tmp_ot, $cred);
+$FileNameOT = prepare_config_file($ot_config_file, $tmp_ot, $cred);
 
+# return file name to Plugin
+echo($FileNameOT);
 
 # get credentials
 function get_mqtt_cred($FileName)  {
@@ -161,6 +166,8 @@ function plugin_config()  {
 # prepare and save OT config file
 function prepare_config_file($ot_config_file, $tmp_ot, $cred)  {
 	
+	global $uname;
+	
 	//print_r($cred);
 	//print_r($tmp_ot);
 	//print_r($ot_config_file);
@@ -176,11 +183,13 @@ function prepare_config_file($ot_config_file, $tmp_ot, $cred)  {
 	$ot_config_file['waypoints'][0]['tst'] = time();
 	LOGGING("Owntracks App configfile has been created", 7);
 	// print_r($ot_config_file);
-	$FileNameOT = LBPDATADIR."/OT_".$tmp_ot['USER']['name'][3]."_".$tmp_ot['LOCATION']['location']."_".$tmp_ot['LOCATION']['radius']."_".date("Ymd").".otrc";
+	$FileNameOT = LBPDATADIR."/OT_".$uname['username']."_".$tmp_ot['LOCATION']['location']."_".$tmp_ot['LOCATION']['radius']."_".date("Ymd").".otrc";
+	$Fname = $uname['username']."_".$tmp_ot['LOCATION']['location']."_".$tmp_ot['LOCATION']['radius']."_".date("Ymd").".otrc";
 	//echo $FileNameOT;
 	File_Put_Array_As_JSON($FileNameOT, $ot_config_file, $zip=false);
 	LOGGING("Owntracks App configfile has been saved to data folder", 5);
 	//return $ot_config_file;
+	return($Fname);
 }
 
 # get topics
