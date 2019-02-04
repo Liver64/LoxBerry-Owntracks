@@ -349,8 +349,8 @@ sub topics_form
 	require "$lbhomedir/bin/plugins/mqttgateway/libs/LoxBerry/JSON/JSONIO.pm";
 	require POSIX;
 	
-	my $datafile = "/dev/shm/mqttgateway_topic.json";
-	#my $datafile = "/dev/shm/mqttgateway_topics.json";
+	#my $datafile = "/dev/shm/mqttgateway_topic.json";
+	my $datafile = "/dev/shm/mqttgateway_topics.json";
 	my $relayjsonobj = LoxBerry::JSON::JSONIO->new();
 	my $relayjson = $relayjsonobj->open(filename => $datafile);
 	my $http_table;
