@@ -59,7 +59,7 @@ $topic_conv_leave = "leave=0";									// conversion for leave
 $last_mqtt_json_data = "/run/shm/mqttgateway_topics.json";		// path to MQTT JSON data
 $mqtt_config = "$lbhomedir/config/plugins/mqttgateway/mqtt.json";			// path to MQTT configuration
 $mqtt_cred = "$lbhomedir/config/plugins/mqttgateway/cred.json";				// path to MQTT login credentials
-$datafile = "/dev/shm/mqttgateway_topic.json";
+$datafile = "/dev/shm/mqttgateway_topics.json";
 
 echo '<PRE>';
 
