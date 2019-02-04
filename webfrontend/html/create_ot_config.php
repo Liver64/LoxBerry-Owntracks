@@ -71,6 +71,7 @@ $params = [	"name" => "Owntracks PHP",
 $log = LBLog::newLog($params);
 $level = LBSystem::pluginloglevel();
 $plugindata = LBSystem::plugindata();
+$L = LBSystem::readlanguage("owntracks.ini");
 
 LOGSTART("PHP started");
 
@@ -166,7 +167,7 @@ function plugin_config()  {
 # prepare and save OT config file
 function prepare_config_file($ot_config_file, $tmp_ot, $cred)  {
 	
-	global $uname;
+	global $uname, $L;
 	
 	//print_r($cred);
 	//print_r($tmp_ot);
@@ -184,7 +185,7 @@ function prepare_config_file($ot_config_file, $tmp_ot, $cred)  {
 	LOGGING("Owntracks App configfile has been created", 7);
 	// print_r($ot_config_file);
 	$FileNameOT = LBPDATADIR."/OT_".$uname['username']."_".$tmp_ot['LOCATION']['location']."_".$tmp_ot['LOCATION']['radius']."_".date("Ymd").".otrc";
-	$Fname = $uname['username']."_".$tmp_ot['LOCATION']['location']."_".$tmp_ot['LOCATION']['radius']."_".date("Ymd").".otrc";
+	$Fname = $L['VALIDATION.SAVE_FILE']. " '".$uname['username']."_".$tmp_ot['LOCATION']['location']."_".$tmp_ot['LOCATION']['radius']."_".date("Ymd").".otrc' ".$L['VALIDATION.SAVE_FILE_WHERE'];
 	//echo $FileNameOT;
 	File_Put_Array_As_JSON($FileNameOT, $ot_config_file, $zip=false);
 	LOGGING("Owntracks App configfile has been saved to data folder", 5);
