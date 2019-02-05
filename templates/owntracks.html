@@ -9,6 +9,7 @@
 <form method="post" name="main_form" id="main_form" accept-charset="utf-8" data-ajax="false" action="./index.cgi">
 
 <input type="hidden" name="saveformdata" value="1">
+<a type="hidden "id="existingLink" href="/opt/loxberry/data/plugins/owntracks4lox/"></a>
 
 <div class="form-group">
 
@@ -75,7 +76,7 @@
 			</td>
 			<td valign="left" style="height: 33px; width: 5%; text-align: left;">
 			<input id="location" name="location" type="text" class="textfield" placeholder="<TMPL_VAR MENU.LOCATION>" value="<TMPL_VAR LOCATION.location>"
-					data-validation-rule="^([äöüÖÜßÄ A-Za-z0-9\ ]){3,20}$"
+					data-validation-rule="^([Ã¤Ã¶Ã¼Ã–ÃœÃŸÃ„ A-Za-z0-9\ ]){3,20}$"
 					data-validation-error-msg="<TMPL_VAR VALIDATION.ERROR_LOCATION>">			
 			</td>
 			<td valign="left" style="height: 33px; width: 3%; text-align: left;">
@@ -203,13 +204,23 @@ function AddUser() {
   var cellRight = row.insertCell(0);
   cellRight.innerHTML = '<tr><td style="width: 4%"><INPUT type="checkbox" style="width: 100%" name="chkuser' + iteration + '" id="chkuser' + iteration + '" align="center"/></td>\n'
   var cellRight = row.insertCell(1);
-  cellRight.innerHTML = '<td style="width: 22%"><input id="username' + iteration + '" name="username' + iteration + '" type="text" placeholder="<TMPL_VAR MENU.USER_LISTING>" value="" align="left" data-validation-error-msg="<TMPL_VAR VALIDATION.USER_NAME>" data-validation-rule="^([äöüÖÜßÄ A-Za-z0-9\ ]){1,20}" style="width: 100%;"></td>\n'
+  cellRight.innerHTML = '<td style="width: 22%"><input id="username' + iteration + '" name="username' + iteration + '" type="text" placeholder="<TMPL_VAR MENU.USER_LISTING>" value="" align="left" data-validation-error-msg="<TMPL_VAR VALIDATION.USER_NAME>" data-validation-rule="^([Ã¤Ã¶Ã¼Ã–ÃœÃŸÃ„ A-Za-z0-9\ ]){1,20}" style="width: 100%;"></td>\n'
   var cellRight = row.insertCell(2);
   cellRight.innerHTML = '<td style="width: 4%"><font size="3" color="green"><TMPL_VAR BUTTON.SAVE_CONFIG_MESSAGE></font></td>\n'
   console.log("New row inserted");
 			
   // Recreate JQUERY styles
   $("#main_form").trigger('create');
+}
+
+
+// function to automatically download created file
+function downloadFile(filePath){
+    var link=document.createElement('a');
+    link.href = filePath;
+    link.download = filePath.substr(filePath.lastIndexOf('/') + 1);
+    console.log("Filename: " + link.download + " saved");
+    link.click();
 }
 
 
@@ -222,7 +233,7 @@ $(document).ready( function ()  {
 			validate_enable('#username' + i + '');
 			validate_chk_object(['#username' + i + '']);
 			//alert('#username' + i + '');
-			console.log('#username' + i + '');
+			//console.log('#username' + i + '');
 		}
 		validate_enable('#dyndns');
 		validate_enable('#port');
@@ -236,39 +247,60 @@ $(document).ready( function ()  {
 		
 		
 		
-$("#users").on('click','.createconfbutton',function()  {
+$("#users").on('click','.createconfbutton',function(event)  {
+
+         // Prevent default posting of form - put here to work in case of errors
+    	 event.preventDefault();
+    	
+    	 // *** declare variables ***
+         //***************************************************************************************
          // get the current row value
          var currentRow =  $(this).closest("tr"); 
          var name = currentRow.find(".uname").val();
          console.log("Name: " + name + " identified");
-                  
- 		// get the current row index
+ 		 // get the current row index
          var rowId = $(this).closest('tr').attr('rowIndex');
 	     rowId = $(this).closest('tr').prop('rowIndex');
-      	 //alert('You Clicked row: ' + rowId + ' using Name: ' + name);
-      	 console.log("rowIndex: " + rowId + " identified");
-
+	     console.log("rowIndex: " + rowId + " identified");
+	     // other variables
+	     var dyndns = $('#dyndns').val();
+	     var port = $('#port').val();
+	     var location = $('#location').val();
+	     var radius = $('#radius').val();
+	     var longitude = $('#longitude').val();
+	     var latitude = $('#latitude').val();
+	     //***************************************************************************************
+ 
         // show that something is loading
         $('#response' + rowId +'').html("<font face='Arial' size='3' color='blue'><TMPL_VAR VALIDATION.WAIT_ANSWER></font>");
+        
         /*
          * function(data){... - data contains the response from create_ot_config.php
          */
         console.log("trying to post...");
         $.post('/plugins/<TMPL_VAR PLUGINDIR>/create_ot_config.php', 
         	{ 
-        		//user_id: "143", 
-        		username: name
-        	}, 
-        	//console.log("trying to post...");
-        function(data) {
-            // show the response
-            $('#response' + rowId +'').html("<font face='Arial' size='3' color='green'>" + data + "</font>");
-            console.log("Succesfull posted Name: " + name + " from row: " + rowId);
-        }).fail(function() {
-        	// show error
-        	$('#response' + rowId +'').html("<font face='Arial' size='3' color='red'><TMPL_VAR ERRORS.ERR_POST></font>");
-        	console.log("Posting to PHP failed, please check input");
-        });
+ 		        dyndns: dyndns, 
+        		port: port,
+        		location: location,
+        		radius: radius,
+        		longitude: longitude,
+        		latitude: latitude,
+        		name: name,
+        		rowIndex: rowId
+        		
+		}).done(function(data) {
+		    $('#response' + rowId +'').html("<font face='Arial' size='3' color='green'><TMPL_VAR VALIDATION.SAVE_FILE> <b>" + data + "</b> <TMPL_VAR VALIDATION.SAVE_FILE_WHERE></font>");
+		    console.log("data received");
+		    path = "http://<TMPL_VAR LBADR>/admin/plugins/<TMPL_VAR PLUGINDIR>/files/";
+		    filePath = path + data;
+		    downloadFile(filePath);
+		}).fail(function (jqXHR, textStatus, errorThrown) {
+        	$('#response' + rowId +'').html("<font face='Arial' size='3' color='red'>Error returned: " + errorThrown + "</font>");
+        	console.log("post error: " + errorThrown); 
+        }).always(function(data) {
+			console.log( "finished" );
+		});
     });
 });
 	

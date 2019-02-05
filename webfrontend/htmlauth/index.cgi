@@ -148,8 +148,10 @@ inittemplate();
 ##########################################################################
 
 $template->param("LBHOSTNAME", lbhostname());
+$template->param("LBADR", lbhostname().":".lbwebserverport());
 $template->param("LBLANG", $lblang);
 $template->param("PLUGINDIR" => $lbpplugindir);
+
 
 LOGDEB "Read main settings from " . $languagefile . " for language: " . $lblang;
 
@@ -273,7 +275,7 @@ sub form
 			$rowsuser .= "<tr><td style='width: 4%;'><INPUT type='checkbox' style='width: 100%' name='chkuser$countuser' id='chkuser$countuser' align='left'/></td>\n";
 			$rowsuser .= "<td style='width: 22%'><input id='username$countuser' name='username$countuser' type='text' class='uname' placeholder='$SL{'MENU.USER_LISTING'}' value='$fields[0]' align='left' data-validation-error-msg='$SL{'VALIDATION.USER_NAME'}' data-validation-rule='^([äöüÖÜßÄ A-Za-z0-9\ ]){1,20}' style='width: 100%;'></td>\n";
 			$rowsuser .= "<td style='width: 4%'><input name='create$countuser' id='create$countuser' class='createconfbutton' type='button' data-role='button' data-inline='true' data-mini='true' onclick='' data-icon='check' value='$SL{'BUTTON.NEW_CONFIG'}'></td>\n";
-			$rowsuser .= "<td style='width: 68%'><div id='response$countuser'></div></td>\n";
+			$rowsuser .= "<td style='width: 90%'><div id='response$countuser'></div></td>\n";
 		}
 	}
 
@@ -349,8 +351,8 @@ sub topics_form
 	require "$lbhomedir/bin/plugins/mqttgateway/libs/LoxBerry/JSON/JSONIO.pm";
 	require POSIX;
 	
-	#my $datafile = "/dev/shm/mqttgateway_topic.json";
-	my $datafile = "/dev/shm/mqttgateway_topics.json";
+	my $datafile = "/dev/shm/mqttgateway_topic.json";
+	#my $datafile = "/dev/shm/mqttgateway_topics.json";
 	my $relayjsonobj = LoxBerry::JSON::JSONIO->new();
 	my $relayjson = $relayjsonobj->open(filename => $datafile);
 	my $http_table;

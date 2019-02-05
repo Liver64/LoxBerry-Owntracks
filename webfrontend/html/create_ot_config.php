@@ -61,7 +61,7 @@ $mqtt_config = "$lbhomedir/config/plugins/mqttgateway/mqtt.json";			// path to M
 $mqtt_cred = "$lbhomedir/config/plugins/mqttgateway/cred.json";				// path to MQTT login credentials
 $datafile = "/dev/shm/mqttgateway_topics.json";
 
-echo '<PRE>';
+#echo '<PRE>';
 
 $params = [	"name" => "Owntracks PHP",
 			"filename" => "$lbplogdir/owntracks.log",
@@ -76,25 +76,27 @@ $L = LBSystem::readlanguage("owntracks.ini");
 LOGSTART("PHP started");
 
 # get data from POST
-$uname = ($_POST);
-
+$postData = ($_POST);
 
 $ot_topics = topics($datafile);
-$cred = get_mqtt_cred($mqtt_cred);
+$credentials = get_mqtt_cred($mqtt_cred);
 $config = get_mqtt_config($mqtt_config);
+$valid_config = validate_mqtt_config($config);
 update_mqtt_config($topic, $topic_conv_enter, $topic_conv_leave);
 $ot_config_file = read_tmpl_config_file($ot_template_file);
-$tmp_ot = plugin_config();
-$FileNameOT = prepare_config_file($ot_config_file, $tmp_ot, $cred);
+$FileNameOT = prepare_config_file($ot_config_file, $credentials);
 
-# return file name to Plugin
+
+##########################################################################################
+### return file name to Plugin
 echo($FileNameOT);
+##########################################################################################
 
 # get credentials
 function get_mqtt_cred($FileName)  {
-	$cred = File_Get_Array_From_JSON($FileName, $zip=false);
-	//print_r($cred);
-	return $cred;
+	$credentials = File_Get_Array_From_JSON($FileName, $zip=false);
+	//print_r($credentials);
+	return $credentials;
 }
 
 # get config
@@ -103,6 +105,22 @@ function get_mqtt_config($FileName)  {
 	define("CONFIG", $config);
 	//print_r($config);
 	return $config;
+}
+
+# validate MQTT config
+function validate_mqtt_config($config)  {
+	LOGGING("Execute check off MQTT Plugin settings...",7);
+	if (($config['Main']['use_http'] === false) and ($config['Main']['use_udp'] === false))  {
+		LOGGING("Sending data to Miniserver is turned off in MQTT Plugin (neither HTTP nore UDP). Please turn on!!",3);
+	}
+	if ($config['Main']['expand_json'] === false)  {
+		LOGGING("The option 'Expand JSON data' is turned off in MQTT Plugin. Please turn on otherwise data conversion does not take place and you can't get 'enter/leave' events into MS!!",4);
+		LOGGING("Please check also if there are any conflicts with other MQTT data you already pass to Miniserver!",4);
+	}
+	if ($config['Main']['convert_booleans'] === false)  {
+		LOGGING("The option 'Convert booleans to 1 and 0' is turned off in MQTT Plugin. Please turn on if you don't receive data in MS in the correct format!",6);
+	}
+	LOGGING("Execute check off MQTT Plugin completed",5);
 }
 
 # check if topic and conversion(s) exist, if not update mqtt.json
@@ -146,51 +164,35 @@ function read_tmpl_config_file($FileName)  {
 	return $ot_config_file;
 }
 
-# read plugin config 
-function plugin_config()  {
-	global $myFolder;
-	
-	if (!file_exists($myFolder.'/owntracks.cfg')) {
-		LOGGING('The file owntracks.cfg could not be opened, please try again!', 4);
-	} else {
-		$tmp_ot = parse_ini_file($myFolder.'/owntracks.cfg', TRUE);
-		if ($tmp_ot === false)  {
-			LOGGING("The file 'owntracks.cfg' could not be parsed, the file may be disruppted. Please check/save your Plugin Config or check file 'owntracks.cfg' manually!", 3);
-			exit(1);
-		}
-		LOGGING("Owntracks config has been loaded",7);
-	}
-	//print_r($tmp_ot);
-	return $tmp_ot;
-}
-
 # prepare and save OT config file
-function prepare_config_file($ot_config_file, $tmp_ot, $cred)  {
+function prepare_config_file($ot_config_file, $credentials)  {
 	
-	global $uname, $L;
+	global $uname, $L, $postData;
 	
-	//print_r($cred);
+	//print_r($credentials);
 	//print_r($tmp_ot);
 	//print_r($ot_config_file);
-	$ot_config_file['host'] = $tmp_ot['CONNECTION']['dyndns'];
-	$ot_config_file['port'] = $tmp_ot['CONNECTION']['port'];
-	$ot_config_file['username'] = $cred['Credentials']['brokeruser'];
-	$ot_config_file['password'] = $cred['Credentials']['brokerpass'];
-	$ot_config_file['deviceId'] = $tmp_ot['USER']['name'][3];
-	$ot_config_file['waypoints'][0]['lat'] = $tmp_ot['LOCATION']['latitude'];
-	$ot_config_file['waypoints'][0]['lon'] = $tmp_ot['LOCATION']['longitude'];
-	$ot_config_file['waypoints'][0]['rad'] = $tmp_ot['LOCATION']['radius'];
-	$ot_config_file['waypoints'][0]['desc'] = $tmp_ot['LOCATION']['location'];
+	$ot_config_file['host'] = $postData['dyndns'];
+	$ot_config_file['port'] = $postData['port'];
+	$ot_config_file['username'] = $credentials['Credentials']['brokeruser'];
+	$ot_config_file['password'] = $credentials['Credentials']['brokerpass'];
+	$ot_config_file['deviceId'] = $postData['name'];
+	$ot_config_file['waypoints'][0]['lat'] = $postData['latitude'];
+	$ot_config_file['waypoints'][0]['lon'] = $postData['longitude'];
+	$ot_config_file['waypoints'][0]['rad'] = $postData['radius'];
+	$ot_config_file['waypoints'][0]['desc'] = $postData['location'];
 	$ot_config_file['waypoints'][0]['tst'] = time();
 	LOGGING("Owntracks App configfile has been created", 7);
-	// print_r($ot_config_file);
-	$FileNameOT = LBPDATADIR."/OT_".$uname['username']."_".$tmp_ot['LOCATION']['location']."_".$tmp_ot['LOCATION']['radius']."_".date("Ymd").".otrc";
-	$Fname = $L['VALIDATION.SAVE_FILE']. " '".$uname['username']."_".$tmp_ot['LOCATION']['location']."_".$tmp_ot['LOCATION']['radius']."_".date("Ymd").".otrc' ".$L['VALIDATION.SAVE_FILE_WHERE'];
+	//print_r($ot_config_file);
+	$FileNameOT = LBPHTMLAUTHDIR."/files/OT_".$postData['name']."_".$postData['location']."_".$postData['radius']."_".date("Ymd").".otrc";
+	//$Fname = $L['VALIDATION.SAVE_FILE']. " '".$postData['name']."_".$postData['location']."_".$postData['radius']."_".date("Ymd").".otrc' ".$L['VALIDATION.SAVE_FILE_WHERE'];
 	//echo $FileNameOT;
 	File_Put_Array_As_JSON($FileNameOT, $ot_config_file, $zip=false);
+	$final_file_name = "OT_".$postData['name']."_".$postData['location']."_".$postData['radius']."_".date("Ymd").".otrc";
 	LOGGING("Owntracks App configfile has been saved to data folder", 5);
 	//return $ot_config_file;
-	return($Fname);
+	//print_r($FileNameOT);
+	return($final_file_name);
 }
 
 # get topics
@@ -199,6 +201,7 @@ function topics($FileName)  {
 	//print_r($ot_topics);
 	return $ot_topics;
 }
+
 
 function shutdown()
 {
