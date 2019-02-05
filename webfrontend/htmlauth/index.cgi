@@ -71,6 +71,9 @@ my $sversion = LoxBerry::System::pluginversion();
 # Read LoxBerry Version
 my $lbversion = LoxBerry::System::lbversion();
 
+# IP-Address
+my $myip =  LoxBerry::System::get_localip();
+
 # read all POST-Parameter in namespace "R".
 my $cgi = CGI->new;
 $cgi->import_names('R');
@@ -124,6 +127,18 @@ if (!-r $lbpconfigdir . "/" . $pluginconfigfile)
 	&error; 
 } else {
 	LOGDEB "The Owntracks config file has been loaded";
+}
+
+##########################################################################
+# Check App Config file dir
+##########################################################################
+
+if (!-d $lbphtmlauthdir . "/files") 
+{	
+	mkdir $lbphtmlauthdir . "/files";
+	LOGOK "App config file directory created";
+} else {
+	LOGDEB "App config file directory already there";
 }
 
 ##########################################################################
