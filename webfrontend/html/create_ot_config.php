@@ -78,6 +78,15 @@ LOGSTART("PHP started");
 # get data from POST
 $postData = ($_POST);
 
+#$postData = array();
+// error handling if no data been recived
+if (empty($postData)) {
+	header('HTTP/1.1 500 '.$L['ERRORS.ERR_POST_PHP']);
+    header('Content-Type: application/json; charset=UTF-8');
+    die(json_encode(array('message' => 'ERROR', 'code' => 1337)));
+	exit(1);
+}
+
 $ot_topics = topics($datafile);
 $credentials = get_mqtt_cred($mqtt_cred);
 $config = get_mqtt_config($mqtt_config);

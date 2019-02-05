@@ -294,6 +294,7 @@ $("#users").on('click','.createconfbutton',function(event)  {
 		    console.log("data received");
 		    path = "http://<TMPL_VAR LBADR>/admin/plugins/<TMPL_VAR PLUGINDIR>/files/";
 		    filePath = path + data;
+		    // auto download file
 		    downloadFile(filePath);
 		}).fail(function (jqXHR, textStatus, errorThrown) {
         	$('#response' + rowId +'').html("<font face='Arial' size='3' color='red'>Error returned: " + errorThrown + "</font>");
