@@ -39,6 +39,7 @@ our $content;
 our $template;
 our %navbar;
 
+my $ip 							= LoxBerry::System::get_localip();
 my $helptemplatefilename		= "help.html";
 my $languagefile 				= "owntracks.ini";
 my $maintemplatefilename	 	= "owntracks.html";
@@ -145,11 +146,14 @@ if (!-d $lbphtmlauthdir . "/files")
 # Check if MQTT Plugin is installed
 ##########################################################################
 
-if (!-r $lbhomedir . "/config/plugins/mqttgateway/mqtt.json") 
+my $mqtt = $lbhomedir . "/config/plugins/mqttgateway/mqtt.json";
+if (!-r $mqtt) 
 {
 	LOGCRIT "It seems that MQTT Plugin is not installed";
 	$error_message = $ERR{'ERRORS.ERR_CHECK_MQTT_PLUGIN'};
 	&error; 
+} else {
+	LOGINF "MQTT Plugin is installed";
 }
 
 ##########################################################################
@@ -162,11 +166,8 @@ inittemplate();
 # Some Settings
 ##########################################################################
 
-$template->param("LBHOSTNAME", lbhostname());
-$template->param("LBADR", lbhostname().":".lbwebserverport());
-$template->param("LBLANG", $lblang);
+$template->param("LBADR", $ip.":".lbwebserverport());
 $template->param("PLUGINDIR" => $lbpplugindir);
-
 
 LOGDEB "Read main settings from " . $languagefile . " for language: " . $lblang;
 
@@ -236,8 +237,15 @@ if ($pcfg->param("LOCATION.longitude") eq '' or $pcfg->param("LOCATION.latitude"
 $navbar{30}{Name} = "$SL{'BASIC.NAVBAR_THIRD'}";
 $navbar{30}{URL} = './index.cgi?do=command';
 
-$navbar{40}{Name} = "$SL{'BASIC.NAVBAR_FOURTH'}";
-$navbar{40}{URL} = './index.cgi?do=tracking';
+#$navbar{40}{Name} = "$SL{'BASIC.NAVBAR_FOURTH'}";
+#$navbar{40}{URL} = './index.cgi?do=tracking';
+
+if (-r $mqtt) 
+{
+	$navbar{50}{Name} = "$SL{'BASIC.NAVBAR_SIXTH'}";
+	$navbar{50}{URL} = 'http://'.$ip.":".lbwebserverport().'/admin/plugins/mqttgateway/index.cgi';
+	$navbar{50}{target} = '_blank';
+}
 
 $navbar{90}{Name} = "$SL{'BASIC.NAVBAR_FIVETH'}";
 $navbar{90}{URL} = './index.cgi?do=logfiles';
