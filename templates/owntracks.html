@@ -207,8 +207,8 @@ function AddUser() {
   cellRight.innerHTML = '<td style="width: 22%"><input id="username' + iteration + '" name="username' + iteration + '" type="text" placeholder="<TMPL_VAR MENU.USER_LISTING>" value="" align="left" data-validation-error-msg="<TMPL_VAR VALIDATION.USER_NAME>" data-validation-rule="^([Ã¤Ã¶Ã¼Ã–ÃœÃŸÃ„ A-Za-z0-9\ ]){1,20}" style="width: 100%;"></td>\n'
   var cellRight = row.insertCell(2);
   cellRight.innerHTML = '<td style="width: 4%"><font size="3" color="green"><TMPL_VAR BUTTON.SAVE_CONFIG_MESSAGE></font></td>\n'
-  console.log("New row inserted");
-			
+  console.log("New row inserted. New countuser=" + iteration + "");
+  $('input[type=text].countuser').val(iteration);		
   // Recreate JQUERY styles
   $("#main_form").trigger('create');
 }
@@ -228,12 +228,15 @@ $(document).ready( function ()  {
 		//var iteration = $('#users >tbody >tr').length;	
 		var iteration = document.getElementById('countuser').value;
 		iteration = parseInt(iteration)
-		iteration += 1;
-		for (i = 1; i < iteration; ++i) {
+		//iteration += 1;
+		//console.log(iteration);
+		//document.getElementById("countuser").value = iteration;
+		for (i = 1; i <= iteration; ++i) {
 			validate_enable('#username' + i + '');
 			validate_chk_object(['#username' + i + '']);
 			//alert('#username' + i + '');
-			//console.log('#username' + i + '');
+			$("#main_form").trigger('create');
+			console.log('#username' + i + '');
 		}
 		validate_enable('#dyndns');
 		validate_enable('#port');
