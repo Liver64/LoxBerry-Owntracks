@@ -166,7 +166,7 @@ inittemplate();
 # Some Settings
 ##########################################################################
 
-$template->param("LBADR", $ip.":".lbwebserverport());
+$template->param("LBADR", lbhostname().":".lbwebserverport());
 $template->param("PLUGINDIR" => $lbpplugindir);
 
 LOGDEB "Read main settings from " . $languagefile . " for language: " . $lblang;

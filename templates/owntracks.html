@@ -215,12 +215,16 @@ function AddUser() {
 
 
 // function to automatically download created file
+
+// https://stackoverflow.com/questions/1066452/easiest-way-to-open-a-download-window-without-navigating-away-from-the-page/1066461
 function downloadFile(filePath){
-    var link=document.createElement('a');
-    link.href = filePath;
-    link.download = filePath.substr(filePath.lastIndexOf('/') + 1);
-    console.log("Filename: " + link.download + " saved");
-    link.click();
+    var a = document.createElement('A');
+	a.href = filePath;
+	a.download = filePath.substr(filePath.lastIndexOf('/') + 1);
+	document.body.appendChild(a);
+	a.click();
+	document.body.removeChild(a);
+	console.log("File: " + a.download + " saved");
 }
 
 
@@ -228,10 +232,10 @@ $(document).ready( function ()  {
 		//var iteration = $('#users >tbody >tr').length;	
 		var iteration = document.getElementById('countuser').value;
 		iteration = parseInt(iteration)
-		//iteration += 1;
+		iteration += 1;
 		//console.log(iteration);
 		//document.getElementById("countuser").value = iteration;
-		for (i = 1; i <= iteration; ++i) {
+		for (i = 1; i < iteration; ++i) {
 			validate_enable('#username' + i + '');
 			validate_chk_object(['#username' + i + '']);
 			//alert('#username' + i + '');
@@ -297,6 +301,7 @@ $("#users").on('click','.createconfbutton',function(event)  {
 		    console.log("data received");
 		    path = "http://<TMPL_VAR LBADR>/admin/plugins/<TMPL_VAR PLUGINDIR>/files/";
 		    filePath = path + data;
+		    console.log("Source: " + filePath);
 		    // auto download file
 		    downloadFile(filePath);
 		}).fail(function (jqXHR, textStatus, errorThrown) {
@@ -310,6 +315,7 @@ $("#users").on('click','.createconfbutton',function(event)  {
 	
 
 </script>
+
 </TMPL_IF>
 
 <TMPL_IF COMMAND>
