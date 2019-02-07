@@ -1,4 +1,8 @@
-# LoxBerry-Owntracks
+Owntracks for LoxBerry
+==================
 
-Geolocation and Geotracking Plugin for LoxBerry\n
-Installation and usage ist explained in LoxWiki: (to be updated)
+A LoyBerry Plugin for Geolocation tracking 
+[LoxBerry](http://www.loxwiki.eu/display/LOXBERRY/LoxBerry/).  
+
+Full documentation is available at https://www.loxwiki.eu/display/LOXBERRY/Owntracks  
+
