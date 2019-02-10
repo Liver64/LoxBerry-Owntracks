@@ -86,12 +86,12 @@
 			</td>
 			<td valign="left" style="height: 33px; width: 5%; text-align: left;">
 			<input id="latitude" name="latitude" type="text" class="textfield" placeholder="<TMPL_VAR MENU.LATITUDE>" value="<TMPL_VAR LOCATION.latitude>"
-					data-validation-rule="^[0-9]+(\.[0-9]{1,11})?$"
+					data-validation-rule="^-?[0-9]+(\.[0-9]{1,17})?$"
 					data-validation-error-msg="<TMPL_VAR VALIDATION.ERROR_LATITUDE>">			
 			</td>
 			<td valign="left" style="height: 33px; width: 5%; text-align: left;">
 			<input id="longitude" name="longitude" type="text" class="textfield" placeholder="<TMPL_VAR MENU.LONGITUDE>" value="<TMPL_VAR LOCATION.longitude>"
-					data-validation-rule="^[0-9]+(\.[0-9]{1,11})?$"
+					data-validation-rule="^-?[0-9]+(\.[0-9]{1,17})?$"
 					data-validation-error-msg="<TMPL_VAR VALIDATION.ERROR_LONGITUDE>">			
 			</td>
 		</table>
@@ -127,7 +127,9 @@
 						    <th align="left" style="height: 33px; width: 22%;"><TMPL_VAR MENU.USERNAME></th>
 						    <th align="left" style="height: 33px; width: 4%;"><TMPL_VAR MENU.CONFIG_FILE></th>
 							<tbody>
+							<div name="userdyn" id="userdyn">
 								<TMPL_VAR ROWSUSER>
+							</div>
 							</tbody>
 						</table>
 					</tr>
@@ -211,6 +213,7 @@ function AddUser() {
   $('input[type=text].countuser').val(iteration);		
   // Recreate JQUERY styles
   $("#main_form").trigger('create');
+  //$('#main_form').selectmenu('refresh');
 }
 
 
@@ -229,6 +232,7 @@ function downloadFile(filePath){
 
 
 $(document).ready( function ()  {
+		
 		//var iteration = $('#users >tbody >tr').length;	
 		var iteration = document.getElementById('countuser').value;
 		iteration = parseInt(iteration)
@@ -239,7 +243,6 @@ $(document).ready( function ()  {
 			validate_enable('#username' + i + '');
 			validate_chk_object(['#username' + i + '']);
 			//alert('#username' + i + '');
-			$("#main_form").trigger('create');
 			console.log('#username' + i + '');
 		}
 		validate_enable('#dyndns');
