@@ -55,4 +55,7 @@ cp -p -v -r /tmp/$1\_upgrade/log/$3/* $5/log/plugins/$3/
 echo "<INFO> Remove temporary folders"
 rm -r /tmp/$1\_upgrade
 
+if [ -f $ot_configfile ]; then
+	ln -s /var/spool/owntracks/recorder/store REPLACELBPDATADIR/recorder
+fi
 exit 0

@@ -6,7 +6,7 @@ touch $LBPLOG/$pluginname/owntracks.log > /dev/null 2>&1
 
 echo "INSTALL: Starting ot-recorder install script" >> $LBPLOG/$pluginname/owntracks.log
 
-$ot_configfile = $LBPCONFIG/recorder/ot-recorder
+ot_configfile = $LBPCONFIG/recorder/ot-recorder
 #PCONFIG=$LBPCONFIG/$PDIR
 
 #if [ ! -f $ot_configfile ]; then
@@ -18,10 +18,11 @@ $ot_configfile = $LBPCONFIG/recorder/ot-recorder
 	cd ./recorder
 	cp -av config.mk.in config.mk
 	
-	echo "<INFO> Installation started"
+	echo "<INFO> Start Installation..."
 	make
 	make install
-	sleep 5
+	sleep 10
+	install --mode 0644 etc/ot-recorder.service /etc/systemd/system/ot-recorder.service
 	
 	echo "<INFO> Create symlinks and change permissions"
 	mkdir -p REPLACELBPCONFIGDIR/recorder
@@ -30,7 +31,7 @@ $ot_configfile = $LBPCONFIG/recorder/ot-recorder
 	ln -s /var/spool/owntracks/recorder/store REPLACELBPDATADIR/recorder
 		
 	echo "<INFO> Copy back existing config files"
-	cp -p -v -r /tmp/$1\_upgrade/ot-config/$3/* /etc/default/ot-recorder
+	cp -p -v -r /tmp/$1\_upgrade/ot-config/ot-recorder /etc/default/ot-recorder
 	
 	echo "<INFO> Remove temporary folders"
 	rm -r /tmp/$1\_upgrade
@@ -38,10 +39,15 @@ $ot_configfile = $LBPCONFIG/recorder/ot-recorder
 	echo "<INFO> Start Service"
 	systemctl enable ot-recorder
 	systemctl start ot-recorder
-	echo "<OK> Installation of ot-recorder completed"
-	echo "<OK> ot-recorder service started and enabled"
-	
+	echo "<INFO> Installation of ot-recorder completed"
+	cd ~
+	rm -r /src
+	echo "<INFO> Temp folder deleted"
+	echo "<OK> ot-recorder service enabled and started"
+#else
+	echo "<INFO> ot-recorder already installed"
 #fi
+
 
 
 # Exit with Status 0
