@@ -13,12 +13,16 @@ if [ -f $ot_configfile ]; then
 	systemctl stop ot-recorder
 	systemctl disable ot-recorder
 
-	echo "<INFO> Create temporary folders for upgrading"
-	mkdir -p /tmp/$1\_upgrade
-	mkdir -p /tmp/$1\_upgrade/config
+	#echo "<INFO> Create temporary folders for upgrading"
+	#mkdir -p /tmp/$1\_upgrade
+	#mkdir -p /tmp/$1\_upgrade/ot-config
+	#mkdir -p /tmp/$1\_upgrade/data
 
-	echo "<INFO> Backing up ot-recorder config file"
-	cp -p -v -r /etc/default/ot-recorder /tmp/$1\_upgrade/ot-config/ot-recorder
+	#echo "<INFO> Backing up ot-recorder config file"
+	#cp -p -v -r /etc/default/ot-recorder /tmp/$1\_upgrade/ot-config
+	
+	#echo "<INFO> Backing up data"
+	#cp -p -v -r /var/spool/owntracks/recorder /tmp/$1\_upgrade/data
 
 	echo "<INFO> Delete previous installation"
 	rm -r /usr/local/sbin/ot-recorder
@@ -29,6 +33,4 @@ else
 	echo "<OK> Nothing to do"
 fi
 
-
-# Exit with Status 0
 exit 0

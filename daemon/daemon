@@ -1,0 +1,12 @@
+#!/bin/bash
+
+# Check if it is running
+pgrep ot-recorder
+exitcode=$?
+if [[ $exitcode != 0 ]]; then
+	# Restart if not
+	systemctl restart ot-recorder
+	sleep 10
+fi
+	done
+fi
