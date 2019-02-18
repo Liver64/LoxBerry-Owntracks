@@ -7,14 +7,16 @@
 use LoxBerry::System;
 use LoxBerry::Web;
 use LoxBerry::Log;
+use LoxBerry::JSON;
 
 use CGI;
 use CGI qw( :standard);
+use File::Copy qw(copy);
 use LWP::Simple;
 use JSON qw( decode_json );
 use utf8;
-use warnings;
-use strict;
+#use warnings;
+#use strict;
 #no strict "refs"; # we need it for template system
 
 ##########################################################################
@@ -37,6 +39,7 @@ my $helptemplate;
 our $content;
 our $template;
 our %navbar;
+our $pid;
 
 my $ip 							= LoxBerry::System::get_localip();
 my $helptemplatefilename		= "help.html";
@@ -44,6 +47,8 @@ my $languagefile 				= "owntracks.ini";
 my $maintemplatefilename	 	= "owntracks.html";
 my $errortemplatefilename 		= "error.html";
 my $pluginconfigfile 			= "owntracks.cfg";
+my $recorderhttpport 			= "8083";
+#my $file 						= "/etc/default/ot-recorder";
 my $pluginlogfile				= "owntracks.log";
 my $helplink 					= "https://www.loxwiki.eu/display/LOXBERRY/Owntracks";
 my $log 						= LoxBerry::Log->new ( name => 'Owntracks UI', filename => $lbplogdir ."/". $pluginlogfile, append => 1, addtime => 1 );
@@ -79,7 +84,35 @@ my $myip =  LoxBerry::System::get_localip();
 my $cgi = CGI->new;
 $cgi->import_names('R');
 
+# Everything from Forms
 LOGSTART "Owntracks UI started";
+
+
+#########################################################################
+## Handle all ajax requests 
+#########################################################################
+
+my $q = $cgi->Vars;
+my $saveformdata = $q->{saveformdata};
+
+my %pids;
+my $template;
+
+if( $q->{ajax} ) 
+{
+	#require JSON;
+	my %response;
+	
+	ajax_header();
+	if( $q->{ajax} eq "getpids" ) {
+		pids();
+		$response{pids} = \%pids;
+		print JSON::encode_json(\%response);
+	}
+	exit;
+}
+
+
 
 #########################################################################
 # Parameter
@@ -127,8 +160,9 @@ if (!-r $lbpconfigdir . "/" . $pluginconfigfile)
 	$error_message = $ERR{'ERRORS.ERR_CHECK_CONFIG_FILE'};
 	&error; 
 } else {
-	LOGDEB "The Owntracks config file has been loaded";
+	LOGDEB "The Plugin config file has been loaded";
 }
+
 
 ##########################################################################
 # Check App Config file dir
@@ -167,6 +201,7 @@ inittemplate();
 ##########################################################################
 
 $template->param("LBADR", lbhostname().":".lbwebserverport());
+#$template->param("LBADR", $myip.":".lbwebserverport());
 $template->param("PLUGINDIR" => $lbpplugindir);
 
 LOGDEB "Read main settings from " . $languagefile . " for language: " . $lblang;
@@ -223,32 +258,52 @@ if ($pcfg->param("LOCATION.longitude") eq '' or $pcfg->param("LOCATION.latitude"
 # Main program
 ##########################################################################
 
-# Navbar
-$navbar{10}{Name} = "$SL{'BASIC.NAVBAR_FIRST'}";
-$navbar{10}{URL} = './index.cgi';
+	# get MQTT Credentials
+	my $credfile = "$lbhomedir/config/plugins/mqttgateway/cred.json";
+	my $jsonobj = LoxBerry::JSON->new();
+	my $mqttcfg = $jsonobj->open(filename => $credfile);
 
-if ($pcfg->param("LOCATION.longitude") eq '' or $pcfg->param("LOCATION.latitude") eq '')  
-{
-	$navbar{20}{Name} = "$SL{'BASIC.NAVBAR_SECOND'}";
-	$navbar{20}{URL} = 'https://www.google.com/maps';
-	$navbar{20}{target} = '_blank';
-}
+	my $mqtt_account = $mqttcfg->{Credentials}{brokeruser};
+	my $mqtt_pass = $mqttcfg->{Credentials}{brokerpass};
+	
+	# get MQTT Config
+	my $credfile = "$lbhomedir/config/plugins/mqttgateway/mqtt.json";
+	my $jsonobj = LoxBerry::JSON->new();
+	my $mqttpcfg = $jsonobj->open(filename => $credfile);
 
-$navbar{30}{Name} = "$SL{'BASIC.NAVBAR_THIRD'}";
-$navbar{30}{URL} = './index.cgi?do=command';
+	my $mqtt_host = $mqttpcfg->{Main}{brokeraddress};
+	
+	# Navbar
+	$navbar{10}{Name} = "$SL{'BASIC.NAVBAR_FIRST'}";
+	$navbar{10}{URL} = './index.cgi';
 
-#$navbar{40}{Name} = "$SL{'BASIC.NAVBAR_FOURTH'}";
-#$navbar{40}{URL} = './index.cgi?do=tracking';
+	if ($pcfg->param("LOCATION.longitude") eq '' or $pcfg->param("LOCATION.latitude") eq '')  
+	{
+		$navbar{20}{Name} = "$SL{'BASIC.NAVBAR_SECOND'}";
+		$navbar{20}{URL} = 'https://www.google.com/maps';
+		$navbar{20}{target} = '_blank';
+	}
 
-if (-r $mqtt) 
-{
-	$navbar{50}{Name} = "$SL{'BASIC.NAVBAR_SIXTH'}";
-	$navbar{50}{URL} = 'http://'.$ip.":".lbwebserverport().'/admin/plugins/mqttgateway/index.cgi';
-	$navbar{50}{target} = '_blank';
-}
+	$navbar{30}{Name} = "$SL{'BASIC.NAVBAR_THIRD'}";
+	$navbar{30}{URL} = './index.cgi?do=command';
 
-$navbar{90}{Name} = "$SL{'BASIC.NAVBAR_FIVETH'}";
-$navbar{90}{URL} = './index.cgi?do=logfiles';
+	my $track = $pcfg->param("CONNECTION.track");
+	if (is_enabled($track))  {
+		$navbar{40}{Name} = "$SL{'BASIC.NAVBAR_FOURTH'}";
+		$navbar{40}{URL} = 'http://'.$myip.':'.$recorderhttpport;
+		$navbar{40}{target} = '_blank';
+	}
+
+	if (-r $mqtt) 
+	{
+		$navbar{50}{Name} = "$SL{'BASIC.NAVBAR_SIXTH'}";
+		$navbar{50}{URL} = 'http://'.$ip.":".lbwebserverport().'/admin/plugins/mqttgateway/index.cgi';
+		$navbar{50}{target} = '_blank';
+	}
+
+	$navbar{90}{Name} = "$SL{'BASIC.NAVBAR_FIVETH'}";
+	$navbar{90}{URL} = './index.cgi?do=logfiles';
+	
 
 if ($R::saveformdata) {
 	&save;
@@ -285,7 +340,7 @@ exit;
 #####################################################
 
 sub form 
-{
+{	
 	# User einlesen
 	our $countuser = 0;
 	our $rowsuser;
@@ -308,10 +363,9 @@ sub form
 	LOGDEB "$countuser User has been loaded.";
 	$rowsuser .= "<input type='hidden' id='countuser' name='countuser' value='$countuser'>\n";
 	$template->param("ROWSUSER", $rowsuser);
-		
-	#$content = "@{[%hash]}";
-	#$content = $wcfg;
-	#print_test($content);
+	
+	#$content = $pid;
+	#&print_test($content);
 	#exit;
 	
 	printtemplate();
@@ -329,18 +383,29 @@ sub save
 	# Everything from Forms
 	my $i;
 	my $countuser = "$R::countuser";
-		
+			
 	# OK - now installing...
 	LOGINF "Start writing configuration file";
 	
 	$pcfg->param("CONNECTION.dyndns", "$R::dyndns");
 	$pcfg->param("CONNECTION.port", "$R::port");
 	#$pcfg->param("CONNECTION.tls", "$R::tls");
+	$pcfg->param("CONNECTION.track", "$R::track");
 	$pcfg->param("LOCATION.location", "$R::location");
 	$pcfg->param("LOCATION.radius", "$R::radius");
 	$pcfg->param("LOCATION.latitude", "$R::latitude");
 	$pcfg->param("LOCATION.longitude", "$R::longitude");
-		
+	$pcfg->param("RECORDER_HTTP.OTR_BROWSERAPIKEY", "$R::googleapikey");
+	$pcfg->param("RECORDER_HTTP.OTR_HTTPHOST", "$myip");
+	$pcfg->param("RECORDER_HTTP.OTR_HTTPPORT", "$recorderhttpport");
+	$pcfg->param("RECORDER_MAIN.OTR_STORAGEDIR", "/var/spool/owntracks/recorder/store");
+	$pcfg->param("RECORDER_MAIN.OTR_CONFIG", "/etc/default/ot-recorder");
+	$pcfg->param("RECORDER_MAIN.OTR_TOPICS", "owntracks/#");
+	$pcfg->param("RECORDER_MQTT.OTR_PORT", "1883\"");
+	$pcfg->param("RECORDER_MQTT.OTR_USER", "$mqtt_account");
+	$pcfg->param("RECORDER_MQTT.OTR_HOST", "$mqtt_host");
+	$pcfg->param("RECORDER_MQTT.OTR_PASS", "$mqtt_pass");
+			
 	# save all user
 	for ($i = 1; $i <= $countuser; $i++) {
 		if ( param("chkuser$i") ) { # if user should be deleted
@@ -351,6 +416,7 @@ sub save
 		}
 	}
 	$pcfg->save() or &error;
+	
 	LOGDEB "User has been saved.";
 	LOGOK "All settings has been saved";
 	
@@ -361,7 +427,15 @@ sub save
 	# SAVE_MESSAGE
 	$template->param("SAVE" => $SL{'BUTTON.SAVE_MESSAGE'});
 	$template->param("FORM", "1");
+	
+	my $trackstatus = $pcfg->param("CONNECTION.track");
+	if (is_enabled($trackstatus))  {
+		recorder_config();
+	} else {
+		system("sudo systemctl stop ot-recorder");
+	}
 	&form;
+	return;
 	exit;
 }
 
@@ -441,6 +515,77 @@ sub topics_form
 	exit;
 	
 }
+
+
+#####################################################
+# Form-Sub
+#####################################################
+
+sub recorder_config 
+{
+	my $file = "/opt/loxberry/data/plugins/owntracks4lox/ot-recorder.txt";
+
+	# Use the open() function to create the file.
+	unless(open FILE, '>'.$file) {
+		# Die with error message 
+		# if we can't open it.
+		LOGCRIT "\nUnable to create $file\n";
+	}
+
+	# Write some text to the file.
+	print FILE "OTR_STORAGEDIR=\"/var/spool/owntracks/recorder/store\"\n";
+	print FILE "OTR_HOST=\"$mqtt_host\"\n";
+	print FILE "OTR_PORT=\"1883\"\n";
+	print FILE "OTR_USER=\"$mqtt_account\"\n";
+	print FILE "OTR_PASS=\"$mqtt_pass\"\n";
+	print FILE "OTR_HTTPHOST=\"$myip\"\n";
+	print FILE "OTR_HTTPPORT=\"$recorderhttpport\"\n";
+	#print FILE "OTR_HTTPLOGDIR=\n";
+	print FILE "OTR_BROWSERAPIKEY=\"$R::googleapikey\"\n";
+	print FILE "OTR_TOPICS=\"owntracks/#\"\n";
+
+	# close the file.
+	close FILE;
+	
+	# copy newly created file to destination
+	my $savefile = $lbpconfigdir."/ot-recorder";
+	my $finalfile = "/etc/default/ot-recorder";
+	rename $file, $lbpconfigdir."/ot-recorder";
+	copy $savefile, $finalfile;
+	system("/bin/sh $lbpbindir/restart.sh");
+	unlink $lbpconfigdir."/ot-recorder";
+	return;
+}
+
+
+######################################################################
+# AJAX functions
+######################################################################
+
+sub pids 
+{
+	$pids{'recorder'} = (split(" ",`ps -A | grep \"ot-recorder\"`))[0];
+}	
+
+sub pkill 
+{
+	my ($process) = @_;
+	`pkill $process`;
+	Time::HiRes::sleep(0.2);
+	`pkill --signal SIGKILL $process`;
+}	
+	
+sub ajax_header
+{
+	print $cgi->header(
+			-type => 'application/json',
+			-charset => 'utf-8',
+			-status => '200 OK',
+	);	
+}	
+
+
+
 
 #####################################################
 # Form-Sub
@@ -525,7 +670,7 @@ sub print_test
 	print "*********************************************************************************************";
 	print "<br>";
 	print "<br>";
-	print $content; 
+	print $content;;
 	exit;
 }
 

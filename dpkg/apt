@@ -9,3 +9,4 @@ libsodium-dev
 libmosquitto-dev 
 liblua5.2-dev
 libcurl4-openssl-dev
+policykit-1

@@ -5,7 +5,8 @@ pgrep ot-recorder
 exitcode=$?
 if [[ $exitcode != 0 ]]; then
 	# Restart if not
-	systemctl restart ot-recorder
+	service ot-recorder --initialize
+	service systemctl restart ot-recorder
 	sleep 10
 fi
 	done

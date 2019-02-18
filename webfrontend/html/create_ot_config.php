@@ -101,6 +101,26 @@ $FileNameOT = prepare_config_file($ot_config_file, $credentials);
 echo($FileNameOT);
 ##########################################################################################
 
+#$delimiter = chr(1);
+#$eoldelimiter = chr(2) . "\n";
+#$fp = fopen('/etc/default/ot-recorder','r');
+#while (!feof($fp)) {
+#    $line = stream_get_line($fp, 4096, $eoldelimiter); //use 2048 if very long lines
+
+#    if ($line[0] === '#' or $line[0] === '//') continue;  //Skip lines that start with #
+#    $loop++;
+#	my_filter($line);
+#}
+
+#function my_filter($var){
+#    return $var[0] != '#';
+# }
+ #$array = array_filter(file('/etc/default/ot-recorder'),'my_filter');
+
+#print_r($array);
+#exit;
+#"/etc/default/ot-recorder"
+
 # get credentials
 function get_mqtt_cred($FileName)  {
 	$credentials = File_Get_Array_From_JSON($FileName, $zip=false);
@@ -134,7 +154,7 @@ function validate_mqtt_config($config)  {
 
 # check if topic and conversion(s) exist, if not update mqtt.json
 function update_mqtt_config($topic, $topic_conv_enter, $topic_conv_leave)   {
-	global $config, $mqtt_config;
+	global $config, $mqtt_config, $topic_conv_enter, $topic_conv_leave;
 	
 	$save_conf = "";
 	LOGGING("Check for missing data in MQTT Plugin will be executed",7);
@@ -144,25 +164,41 @@ function update_mqtt_config($topic, $topic_conv_enter, $topic_conv_leave)   {
 		$save_conf = "1";
 		LOGGING("Owntracks topic 'owntracks/#' has been added to mqtt.json",7);
 	}
-	$key_enter = array_search($topic_conv_enter, $config['conversions']);
-	if ($key_enter === false)  {
+	if ($config['conversions'] != NULL)  {
+		$key_enter = array_search($topic_conv_enter, $config['conversions']);
+		if ($key_enter === false)  {
+			echo "key enter: ".$topic_conv_enter."<br>";
+			array_push($config['conversions'],$topic_conv_enter);
+			$save_conf = "1";
+			LOGGING("Owntracks conversion 'enter=1' has been added to mqtt.json",7);
+		}
+	} else {
+		echo "topic: ".$topic_conv_enter."<br>";
 		array_push($config['conversions'],$topic_conv_enter);
+		print_r($config);
 		$save_conf = "1";
 		LOGGING("Owntracks conversion 'enter=1' has been added to mqtt.json",7);
 	}
-	$key_leave = array_search($topic_conv_leave, $config['conversions']);
-	if ($key_leave === false)  {
+	if (array_key_exists("conversions", $config))  {
+		$key_leave = array_search($topic_conv_leave, $config['conversions']);
+		if ($key_leave === false)  {
+			array_push($config['conversions'],$topic_conv_leave);
+			$save_conf = "1";
+			LOGGING("Owntracks conversion 'leave=0' has been added to mqtt.json",7);
+		}
+	} else {
 		array_push($config['conversions'],$topic_conv_leave);
 		$save_conf = "1";
 		LOGGING("Owntracks conversion 'leave=0' has been added to mqtt.json",7);
 	}
 	if ($save_conf == "1")  {
-		//print_r($config);
+		print_r($config);
 		File_Put_Array_As_JSON($mqtt_config, $config, $zip=false);
 		LOGGING("file 'mqtt.json' has been successful updated",7);
 	} else {
 		LOGGING("Nothing to do, data already there",7);
 	}
+	//print_r($config);
 }
 
 # read config template file

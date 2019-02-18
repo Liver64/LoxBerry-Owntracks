@@ -76,7 +76,7 @@
 			</td>
 			<td valign="left" style="height: 33px; width: 5%; text-align: left;">
 			<input id="location" name="location" type="text" class="textfield" placeholder="<TMPL_VAR MENU.LOCATION>" value="<TMPL_VAR LOCATION.location>"
-					data-validation-rule="^([Ã¤Ã¶Ã¼Ã–ÃœÃŸÃ„ A-Za-z0-9\ ]){3,20}$"
+					data-validation-rule="^([ÃƒÂ¤ÃƒÂ¶ÃƒÂ¼Ãƒâ€“ÃƒÅ“ÃƒÅ¸Ãƒâ€ž A-Za-z0-9\ ]){3,20}$"
 					data-validation-error-msg="<TMPL_VAR VALIDATION.ERROR_LOCATION>">			
 			</td>
 			<td valign="left" style="height: 33px; width: 3%; text-align: left;">
@@ -94,6 +94,54 @@
 					data-validation-rule="^-?[0-9]+(\.[0-9]{1,17})?$"
 					data-validation-error-msg="<TMPL_VAR VALIDATION.ERROR_LONGITUDE>">			
 			</td>
+		</table>
+			
+			
+		<tr>
+		<table>
+			<td valign="left" style="height: 33px; width: 5%; vertical-align: bottom; text-align: left;">
+				<label id="lip"><TMPL_VAR MENU.LABEL_TRACK></label>
+			</td>
+			<td valign="left" style="height: 33px; width: 2%; text-align: left;">
+				
+				<fieldset style="width: 101px">
+					<select type="checkbox" data-theme="b" id="track" name="track" data-role="flipswitch" style="width: 34px">
+						<option <TMPL_VAR TRACK> value="false"><TMPL_VAR BUTTON.FLIPSWITCH_OFF></option>
+						<option <TMPL_VAR TRACK> value="true"><TMPL_VAR BUTTON.FLIPSWITCH_ON></option>
+					</select>
+				</fieldset>
+				<script>
+					$('#track').val('<TMPL_VAR CONNECTION.track>')
+				</script>
+
+			</td>
+			<td class="api" valign="left" style="height: 33px; width: 12%; text-align: left;">
+				<!--<input id="googleapikey" name="googleapikey" class="textfield" type="text" placeholder="<TMPL_VAR MENU.GOOGLE_KEY>" value="<TMPL_VAR RECORDER_HTTP.OTR_BROWSERAPIKEY>"
+					data-validation-error-msg="<TMPL_VAR ERRORS.ERR_SECRETKEY>" 
+					data-validation-rule="^([A-Za-z0-9\!\#\$\%\&\'\*\+\_\-\,\/\:\;\=\?\@\[\]\\\]]){0,39}$">-->
+				<input id="googleapikey" name="googleapikey" type="text" class="textfield" placeholder="<TMPL_VAR MENU.GOOGLE_KEY>" value="<TMPL_VAR RECORDER_HTTP.OTR_BROWSERAPIKEY>">
+			</td>
+			<td valign="middle" style="height: 33px; width: 6%; vertical-align: bottom; text-align: left;">
+				<label id="lip"><TMPL_VAR MENU.LABEL_TLS></label>
+			</td>
+			<td valign="left" style="height: 33px; width: 5%; text-align: left;">
+				<fieldset>
+					<select id="tls" name="tls" data-role="flipswitch" style="width: 34px" disabled=disabled>
+						<option <TMPL_VAR TLS1> value="false"><TMPL_VAR BUTTON.FLIPSWITCH_OFF></option>
+						<option <TMPL_VAR TLS2> value="true"><TMPL_VAR BUTTON.FLIPSWITCH_ON></option>
+					</select>
+				</fieldset>
+				<script>
+					$('#tls').val('<TMPL_VAR CONNECTION.tls>')
+				</script>
+			</td>
+			<td valign="left" style="height: 33px; width: 3%; text-align: left;">
+			</td>
+			<td valign="left" style="height: 33px; width: 5%; text-align: left;">
+			</td>
+			<td valign="left" style="height: 33px; width: 5%; text-align: left;">
+			</td>
+			
 		</table>
 </tr>
 <hr/>
@@ -162,16 +210,19 @@
 
 </div>
 <tr>
-<h3>&nbsp;</h3>
-</tr>
-<tr>
 <p>
 	<center>
 		<a id="btncancel" data-role="button" data-inline="true" data-mini="true" data-icon="delete" href="/admin/plugins/onwtracks/index.cgi"><TMPL_VAR BUTTON.CANCEL></a>
 		<button type="submit" form="main_form" name="btnsubmit" id="btnsubmit" data-role="button" data-inline="true" data-mini="true" data-icon="check"><TMPL_VAR BUTTON.SAVE></button>
-		<div><br/>
+		<a id="btnrestart" name="btnrestart" data-role="button" data-inline="true" data-mini="true" data-icon="refresh" href="/admin/plugins/onwtracks/index.cgi"><TMPL_VAR BUTTON.RESTART></a>
+			<div style="display:flex;align-items:center;justify-content:center;">
+				&nbsp;
+				&nbsp;<span id="recorderstate"></span>
+			</div>
+		<div>
+		<br/>
 			<td colspan=3 valign="middle" style="height: 36px">
-				<font size="4" COLOR="green"><TMPL_VAR SAVE></font>
+				<font COLOR="blue"><TMPL_VAR SAVE></font>
 			</td>
 			<div id="log"></div>
 		</div>
@@ -182,6 +233,30 @@
 </body>
 
 <script>
+
+$(document).on('pageinit', function() {
+	track_on();
+	//update_pid();
+});
+
+
+
+function track_on()  {
+var trackvalue = $('#track').val();
+	if (trackvalue == "true" ) {
+  		//alert(trackvalue); 
+  		$('#btnrestart').fadeIn(600);
+  		$('.api').fadeIn(600);
+
+  		//$('#googleapikey').removeClass('ui-disabled');
+  	} else {
+  		//$('#googleapikey').addClass('ui-disabled');
+  		$('#btnrestart').fadeOut(600);
+  		$('.api').fadeOut(600);
+
+  	}
+}
+
 
 // Function to add new User to config
 function AddUser() {
@@ -206,7 +281,7 @@ function AddUser() {
   var cellRight = row.insertCell(0);
   cellRight.innerHTML = '<tr><td style="width: 4%"><INPUT type="checkbox" style="width: 100%" name="chkuser' + iteration + '" id="chkuser' + iteration + '" align="center"/></td>\n'
   var cellRight = row.insertCell(1);
-  cellRight.innerHTML = '<td style="width: 22%"><input id="username' + iteration + '" name="username' + iteration + '" type="text" placeholder="<TMPL_VAR MENU.USER_LISTING>" value="" align="left" data-validation-error-msg="<TMPL_VAR VALIDATION.USER_NAME>" data-validation-rule="^([Ã¤Ã¶Ã¼Ã–ÃœÃŸÃ„ A-Za-z0-9\ ]){1,20}" style="width: 100%;"></td>\n'
+  cellRight.innerHTML = '<td style="width: 22%"><input id="username' + iteration + '" name="username' + iteration + '" type="text" placeholder="<TMPL_VAR MENU.USER_LISTING>" value="" align="left" data-validation-error-msg="<TMPL_VAR VALIDATION.USER_NAME>" data-validation-rule="^([ÃƒÂ¤ÃƒÂ¶ÃƒÂ¼Ãƒâ€“ÃƒÅ“ÃƒÅ¸Ãƒâ€ž A-Za-z0-9\ ]){1,20}" style="width: 100%;"></td>\n'
   var cellRight = row.insertCell(2);
   cellRight.innerHTML = '<td style="width: 4%"><font size="3" color="green"><TMPL_VAR BUTTON.SAVE_CONFIG_MESSAGE></font></td>\n'
   console.log("New row inserted. New countuser=" + iteration + "");
@@ -220,7 +295,7 @@ function AddUser() {
 // function to automatically download created file
 
 // https://stackoverflow.com/questions/1066452/easiest-way-to-open-a-download-window-without-navigating-away-from-the-page/1066461
-function downloadFile(filePath){
+function downloadFile(filePath)  {
     var a = document.createElement('A');
 	a.href = filePath;
 	a.download = filePath.substr(filePath.lastIndexOf('/') + 1);
@@ -231,7 +306,41 @@ function downloadFile(filePath){
 }
 
 
+
+function update_pid() {
+	$.post( 'index.cgi', {
+	ajax: 'getpids' })
+	
+	.done(function(resp) {
+		console.log( "ajax_post", "success", resp );
+		if(resp.pids.recorder != null) {
+			$("#recorderstate").attr("style", "color:green").html("Recorder running (PID"+resp.pids.recorder+")");
+		} else {
+			$("#recorderstate").attr("style", "color:red").html("Recorder not running");
+		}		
+	})
+	.fail(function(resp) {
+  		//alert(resp);
+		$("#recorderstate").attr("style", "color:red").html("Failed to query PID");
+		console.log( "ajax_post", "error", resp );
+	})
+	.always(function(resp) {
+		//console.log( "ajax_post", "finished", resp );
+	});
+}
+	
+	
+
+$(function() {
+
+	
+});
+
+
 $(document).ready( function ()  {
+
+		setInterval(function(){ update_pid(); }, 20000);
+		update_pid();
 		
 		//var iteration = $('#users >tbody >tr').length;	
 		var iteration = document.getElementById('countuser').value;
@@ -246,6 +355,7 @@ $(document).ready( function ()  {
 			console.log('#username' + i + '');
 		}
 		validate_enable('#dyndns');
+		//validate_enable('#googleapikey');
 		validate_enable('#port');
 		validate_enable('#location');
 		validate_enable('#radius');
@@ -257,7 +367,7 @@ $(document).ready( function ()  {
 		
 		
 		
-$("#users").on('click','.createconfbutton',function(event)  {
+	$("#users").on('click','.createconfbutton',function(event)  {
 
          // Prevent default posting of form - put here to work in case of errors
     	 event.preventDefault();
@@ -300,20 +410,40 @@ $("#users").on('click','.createconfbutton',function(event)  {
         		rowIndex: rowId
         		
 		}).done(function(data) {
-		    $('#response' + rowId +'').html("<font face='Arial' size='3' color='green'><TMPL_VAR VALIDATION.SAVE_FILE> <b>" + data + "</b> <TMPL_VAR VALIDATION.SAVE_FILE_WHERE></font>");
-		    console.log("data received");
+		    //$('#response' + rowId +'').html("<font face='Arial' size='3' color='green'><TMPL_VAR VALIDATION.SAVE_FILE> <b>" + data + "</b> <TMPL_VAR VALIDATION.SAVE_FILE_WHERE></font>");
+		    $('#response' + rowId +'').html("<font face='Arial' size='3' color='green'><TMPL_VAR VALIDATION.SAVE_FILE></font>");
+		    console.log("ajax_post", "success");
 		    path = "http://<TMPL_VAR LBADR>/admin/plugins/<TMPL_VAR PLUGINDIR>/files/";
 		    filePath = path + data;
-		    console.log("Source: " + filePath);
+		    //console.log("Source: " + filePath);
 		    // auto download file
 		    downloadFile(filePath);
 		}).fail(function (jqXHR, textStatus, errorThrown) {
         	$('#response' + rowId +'').html("<font face='Arial' size='3' color='red'>Error returned: " + errorThrown + "</font>");
-        	console.log("post error: " + errorThrown); 
+        	console.log("ajax_post", "error" + errorThrown); 
         }).always(function(data) {
-			console.log( "finished" );
+			//console.log( "finished" );
 		});
     });
+    
+$('#track').on('change',function(){
+	var trackvalue = $('#track').val();
+	if (trackvalue == "true" ) {
+  		//alert(trackvalue); 
+  		$('#btnrestart').fadeIn(600);
+  		$('.api').fadeIn(600);
+  		//$('#googleapikey').removeClass('ui-disabled');
+  	} else {
+  		//$('#googleapikey').addClass('ui-disabled');
+  		$('#btnrestart').fadeOut(600);
+  		$('.api').fadeOut(600);
+  	}
+});  
+	
+	
+
+
+ 
 });
 	
 
