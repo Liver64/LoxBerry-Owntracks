@@ -392,26 +392,26 @@ sub save
 	# OK - now installing...
 	LOGINF "Start writing configuration file";
 	
-	my $trackstatus = $pcfg->param("CONNECTION.track");
-	if (is_enabled($trackstatus))  {
+	my $trackstatus = $R::track;
+	if ($trackstatus eq "true")  {
 		compare_config();
-		#$pcfg->param("CONNECTION.compare", "$count");
 		if ($count > 1)  {
 			$pcfg->param("RECORDER_HTTP.OTR_BROWSERAPIKEY", "$R::googleapikey");
 			$pcfg->param("RECORDER_MQTT.OTR_USER", "$mqtt_account");
 			$pcfg->param("RECORDER_MQTT.OTR_HOST", "$mqtt_host");
 			$pcfg->param("RECORDER_MQTT.OTR_PASS", "$mqtt_pass");
+			$pcfg->param("CONNECTION.track", "true");
 			$pcfg->save() or &error;
 			recorder_config();
 		}
 	} else {
+		$pcfg->param("CONNECTION.track", "false");
 		system("sudo systemctl stop ot-recorder");
 	}
 		
 	$pcfg->param("CONNECTION.dyndns", "$R::dyndns");
 	$pcfg->param("CONNECTION.port", "$R::port");
 	#$pcfg->param("CONNECTION.tls", "$R::tls");
-	$pcfg->param("CONNECTION.track", "$R::track");
 	$pcfg->param("LOCATION.location", "$R::location");
 	$pcfg->param("LOCATION.radius", "$R::radius");
 	$pcfg->param("LOCATION.latitude", "$R::latitude");
@@ -441,8 +441,8 @@ sub save
 	$template->param("SAVE" => $SL{'BUTTON.SAVE_MESSAGE'});
 	$template->param("FORM", "1");
 	
-	
 	&form;
+	#$content = $R::track;
 	#print_test($content);
 	#exit;
 }
@@ -537,10 +537,11 @@ sub compare_config
 	$mqtt_account = $mqttcfg->{Credentials}{brokeruser};
 	$mqtt_pass = $mqttcfg->{Credentials}{brokerpass};
 	$mqtt_host = $mqttpcfg->{Main}{brokeraddress};
-	our $saved_mqtt_user = $pcfg->param("RECORDER_MQTT.OTR_USER");
-	our $saved_mqtt_pass = $pcfg->param("RECORDER_MQTT.OTR_PASS");
-	our $saved_mqtt_host = $pcfg->param("RECORDER_MQTT.OTR_HOST");
-	our $saved_mqtt_api = $pcfg->param("RECORDER_HTTP.OTR_BROWSERAPIKEY");
+	my $saved_track = $pcfg->param("CONNECTION.track");
+	my $saved_mqtt_user = $pcfg->param("RECORDER_MQTT.OTR_USER");
+	my $saved_mqtt_pass = $pcfg->param("RECORDER_MQTT.OTR_PASS");
+	my $saved_mqtt_host = $pcfg->param("RECORDER_MQTT.OTR_HOST");
+	my $saved_mqtt_api = $pcfg->param("RECORDER_HTTP.OTR_BROWSERAPIKEY");
 	
 	if (($mqtt_account ne $saved_mqtt_user))  {
 		$count++;
@@ -554,6 +555,9 @@ sub compare_config
 	if ($R::googleapikey ne $saved_mqtt_api)  {
 		$count++;
 	}
+	if ($R::track ne $saved_track)  {
+		$count++;
+	}
 }
 
 #####################################################
@@ -562,7 +566,7 @@ sub compare_config
 
 sub recorder_config 
 {
-	my $file = "/opt/loxberry/data/plugins/owntracks4lox/ot-recorder.txt";
+	my $file = $lbpdatadir."/ot-recorder.txt";
 
 	# Use the open() function to create the file.
 	unless(open FILE, '>'.$file) {
