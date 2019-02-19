@@ -40,6 +40,10 @@ our $content;
 our $template;
 our %navbar;
 our $pid;
+our $change;
+our $mqtt_host;
+our $mqtt_account;
+our $mqtt_pass;
 
 my $ip 							= LoxBerry::System::get_localip();
 my $helptemplatefilename		= "help.html";
@@ -190,6 +194,7 @@ if (!-r $mqtt)
 	LOGINF "MQTT Plugin is installed";
 }
 
+
 ##########################################################################
 # Initiate Main Template
 ##########################################################################
@@ -263,16 +268,16 @@ if ($pcfg->param("LOCATION.longitude") eq '' or $pcfg->param("LOCATION.latitude"
 	my $jsonobj = LoxBerry::JSON->new();
 	my $mqttcfg = $jsonobj->open(filename => $credfile);
 
-	my $mqtt_account = $mqttcfg->{Credentials}{brokeruser};
-	my $mqtt_pass = $mqttcfg->{Credentials}{brokerpass};
+	$mqtt_account = $mqttcfg->{Credentials}{brokeruser};
+	$mqtt_pass = $mqttcfg->{Credentials}{brokerpass};
 	
 	# get MQTT Config
-	my $credfile = "$lbhomedir/config/plugins/mqttgateway/mqtt.json";
-	my $jsonobj = LoxBerry::JSON->new();
-	my $mqttpcfg = $jsonobj->open(filename => $credfile);
+	my $configfile = "$lbhomedir/config/plugins/mqttgateway/mqtt.json";
+	my $jsonobj1 = LoxBerry::JSON->new();
+	my $mqttpcfg = $jsonobj1->open(filename => $configfile);
 
-	my $mqtt_host = $mqttpcfg->{Main}{brokeraddress};
-	
+	$mqtt_host = $mqttpcfg->{Main}{brokeraddress};
+		
 	# Navbar
 	$navbar{10}{Name} = "$SL{'BASIC.NAVBAR_FIRST'}";
 	$navbar{10}{URL} = './index.cgi';
@@ -365,7 +370,7 @@ sub form
 	$template->param("ROWSUSER", $rowsuser);
 	
 	#$content = $pid;
-	#&print_test($content);
+	#print_test($content);
 	#exit;
 	
 	printtemplate();
@@ -387,6 +392,22 @@ sub save
 	# OK - now installing...
 	LOGINF "Start writing configuration file";
 	
+	my $trackstatus = $pcfg->param("CONNECTION.track");
+	if (is_enabled($trackstatus))  {
+		compare_config();
+		#$pcfg->param("CONNECTION.compare", "$count");
+		if ($count > 1)  {
+			$pcfg->param("RECORDER_HTTP.OTR_BROWSERAPIKEY", "$R::googleapikey");
+			$pcfg->param("RECORDER_MQTT.OTR_USER", "$mqtt_account");
+			$pcfg->param("RECORDER_MQTT.OTR_HOST", "$mqtt_host");
+			$pcfg->param("RECORDER_MQTT.OTR_PASS", "$mqtt_pass");
+			$pcfg->save() or &error;
+			recorder_config();
+		}
+	} else {
+		system("sudo systemctl stop ot-recorder");
+	}
+		
 	$pcfg->param("CONNECTION.dyndns", "$R::dyndns");
 	$pcfg->param("CONNECTION.port", "$R::port");
 	#$pcfg->param("CONNECTION.tls", "$R::tls");
@@ -395,17 +416,13 @@ sub save
 	$pcfg->param("LOCATION.radius", "$R::radius");
 	$pcfg->param("LOCATION.latitude", "$R::latitude");
 	$pcfg->param("LOCATION.longitude", "$R::longitude");
-	$pcfg->param("RECORDER_HTTP.OTR_BROWSERAPIKEY", "$R::googleapikey");
 	$pcfg->param("RECORDER_HTTP.OTR_HTTPHOST", "$myip");
 	$pcfg->param("RECORDER_HTTP.OTR_HTTPPORT", "$recorderhttpport");
 	$pcfg->param("RECORDER_MAIN.OTR_STORAGEDIR", "/var/spool/owntracks/recorder/store");
 	$pcfg->param("RECORDER_MAIN.OTR_CONFIG", "/etc/default/ot-recorder");
 	$pcfg->param("RECORDER_MAIN.OTR_TOPICS", "owntracks/#");
-	$pcfg->param("RECORDER_MQTT.OTR_PORT", "1883\"");
-	$pcfg->param("RECORDER_MQTT.OTR_USER", "$mqtt_account");
-	$pcfg->param("RECORDER_MQTT.OTR_HOST", "$mqtt_host");
-	$pcfg->param("RECORDER_MQTT.OTR_PASS", "$mqtt_pass");
-			
+	$pcfg->param("RECORDER_MQTT.OTR_PORT", "1883");
+	
 	# save all user
 	for ($i = 1; $i <= $countuser; $i++) {
 		if ( param("chkuser$i") ) { # if user should be deleted
@@ -419,24 +436,15 @@ sub save
 	
 	LOGDEB "User has been saved.";
 	LOGOK "All settings has been saved";
-	
-	#$content = $server_endpoint;
-	#print_test($content);
-	#exit;
-	
+		
 	# SAVE_MESSAGE
 	$template->param("SAVE" => $SL{'BUTTON.SAVE_MESSAGE'});
 	$template->param("FORM", "1");
 	
-	my $trackstatus = $pcfg->param("CONNECTION.track");
-	if (is_enabled($trackstatus))  {
-		recorder_config();
-	} else {
-		system("sudo systemctl stop ot-recorder");
-	}
+	
 	&form;
-	return;
-	exit;
+	#print_test($content);
+	#exit;
 }
 
 
@@ -516,6 +524,37 @@ sub topics_form
 	
 }
 
+
+#####################################################
+# Form-Sub
+#####################################################
+
+sub compare_config 
+{	
+	$count = 1;
+	
+	# compare config in order to check if recorder require updates
+	$mqtt_account = $mqttcfg->{Credentials}{brokeruser};
+	$mqtt_pass = $mqttcfg->{Credentials}{brokerpass};
+	$mqtt_host = $mqttpcfg->{Main}{brokeraddress};
+	our $saved_mqtt_user = $pcfg->param("RECORDER_MQTT.OTR_USER");
+	our $saved_mqtt_pass = $pcfg->param("RECORDER_MQTT.OTR_PASS");
+	our $saved_mqtt_host = $pcfg->param("RECORDER_MQTT.OTR_HOST");
+	our $saved_mqtt_api = $pcfg->param("RECORDER_HTTP.OTR_BROWSERAPIKEY");
+	
+	if (($mqtt_account ne $saved_mqtt_user))  {
+		$count++;
+	}
+	if ($mqtt_pass ne $saved_mqtt_pass)  {
+		$count++;
+	}
+	if ($mqtt_host ne $saved_mqtt_host)  {
+		$count++;
+	}
+	if ($R::googleapikey ne $saved_mqtt_api)  {
+		$count++;
+	}
+}
 
 #####################################################
 # Form-Sub
@@ -670,7 +709,7 @@ sub print_test
 	print "*********************************************************************************************";
 	print "<br>";
 	print "<br>";
-	print $content;;
+	print $content;
 	exit;
 }
 
