@@ -10,6 +10,8 @@
 
 <input type="hidden" name="saveformdata" value="1">
 <a type="hidden "id="existingLink" href="/opt/loxberry/data/plugins/owntracks4lox/"></a>
+<!--<input type="test" name="test" value="<TMPL_VAR CONNECTION.compare>">-->
+
 
 <div class="form-group">
 
@@ -19,10 +21,20 @@
 
 <table class="formtable" border="0" width="100%" cellpadding="10">
 	<tr>
+	<div style="display:flex;align-items:center;justify-content:center;">
+				<span id="recorderstate"></span>&nbsp;|
+				&nbsp;<span id="gatewaystate"></span>&nbsp;| 
+				&nbsp;<span id="mosquittostate"></span>&nbsp;|
+				&nbsp;<font COLOR="blue"><TMPL_VAR SAVE></font>
+			</div>
 		<div class="wide">
 		<img width="64" height="64" src="/plugins/<TMPL_VAR PLUGINDIR>/images/owntracks_64.png" alt="">
 		<TMPL_VAR BASIC.PLUGIN_NAME>
 		</div>
+		
+		
+
+		
 	</tr>
 	<tr>
 		<td valign="left" style="height: 33px; width: 32%; text-align: left;">
@@ -212,18 +224,19 @@
 <tr>
 <p>
 	<center>
-		<a id="btncancel" data-role="button" data-inline="true" data-mini="true" data-icon="delete" href="/admin/plugins/onwtracks/index.cgi"><TMPL_VAR BUTTON.CANCEL></a>
+		<!--<a id="btncancel" data-role="button" data-inline="true" data-mini="true" data-icon="delete" href="/admin/plugins/onwtracks/index.cgi"><TMPL_VAR BUTTON.CANCEL></a>-->
 		<button type="submit" form="main_form" name="btnsubmit" id="btnsubmit" data-role="button" data-inline="true" data-mini="true" data-icon="check"><TMPL_VAR BUTTON.SAVE></button>
-		<a id="btnrestart" name="btnrestart" data-role="button" data-inline="true" data-mini="true" data-icon="refresh" href="/admin/plugins/onwtracks/index.cgi"><TMPL_VAR BUTTON.RESTART></a>
-			<div style="display:flex;align-items:center;justify-content:center;">
-				&nbsp;
-				&nbsp;<span id="recorderstate"></span>
-			</div>
+		<a id="restart" name="restart" data-role="button" data-inline="true" data-mini="true" data-icon="refresh"><TMPL_VAR BUTTON.RESTART></a>
+			<!--<div style="display:flex;align-items:center;justify-content:center;">
+				<span id="recorderstate"></span>&nbsp;|
+				&nbsp;<span id="gatewaystate"></span>&nbsp;| 
+				&nbsp;<span id="mosquittostate"></span>
+			</div>-->
 		<div>
 		<br/>
-			<td colspan=3 valign="middle" style="height: 36px">
+			<!--<td colspan=3 valign="middle" style="height: 36px">
 				<font COLOR="blue"><TMPL_VAR SAVE></font>
-			</td>
+			</td>-->
 			<div id="log"></div>
 		</div>
 	</center>
@@ -308,16 +321,29 @@ function downloadFile(filePath)  {
 
 
 function update_pid() {
+	//$('#recorderstate').html("<font face='Arial' size='3' color='blue'><TMPL_VAR VALIDATION.WAIT_ANSWER></font>");
+
 	$.post( 'index.cgi', {
 	ajax: 'getpids' })
-	
+
 	.done(function(resp) {
 		console.log( "ajax_post", "success", resp );
 		if(resp.pids.recorder != null) {
-			$("#recorderstate").attr("style", "color:green").html("Recorder running (PID"+resp.pids.recorder+")");
+			$("#recorderstate").attr("style", "color:green").html("Tracking running (PID"+resp.pids.recorder+")");
 		} else {
-			$("#recorderstate").attr("style", "color:red").html("Recorder not running");
-		}		
+			$("#recorderstate").attr("style", "color:red").html("Tracking not running");
+		}
+		if(resp.pids.mqttgateway != null) {
+			$("#gatewaystate").attr("style", "color:green").html("MQTT Gateway running (PID"+resp.pids.mqttgateway+")");
+		} else {
+			$("#gatewaystate").attr("style", "color:red").html("MQTT Gateway not running");
+		}
+		if(resp.pids.mosquitto != null) {
+			$("#mosquittostate").attr("style", "color:green").html("Mosquitto running (PID"+resp.pids.mosquitto+")");
+		} else {
+			$("#mosquittostate").attr("style", "color:red").html("Mosquitto not running");
+		}
+		
 	})
 	.fail(function(resp) {
   		//alert(resp);
@@ -333,13 +359,32 @@ function update_pid() {
 
 $(function() {
 
+$("#restart").click(function(){
+		console.log("Restart pressed");
+		$("#restart").attr("disabled", true);
+		$.post( 'index.cgi', {
+			ajax: 'restartrecorder' })
+		.done(function(resp) {
+			console.log( "ajax_post", "success", resp );
+	  })
+	  .fail(function(resp) {
+			console.log( "ajax_post", "failed", resp );
+	  })
+	  .always(function(resp) {
+			console.log( "ajax_post", "finished", resp );
+		$("#restart").attr("disabled", false);
+		update_pid();
+			
+	  });
+	});
+
 	
 });
 
 
 $(document).ready( function ()  {
 
-		setInterval(function(){ update_pid(); }, 20000);
+		setInterval(function(){ update_pid(); }, 5000);
 		update_pid();
 		
 		//var iteration = $('#users >tbody >tr').length;	
