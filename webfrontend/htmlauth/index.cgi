@@ -114,7 +114,6 @@ if( $q->{ajax} )
 		print JSON::encode_json(\%response);
 	}
 	if( $q->{ajax} eq "restartrecorder" ) {
-		#pkill('mqttgateway.pl');
 		`cd $lbpbindir ; $lbpbindir/restart.sh > /dev/null 2>&1 &`;
 		pids();
 		$response{pids} = \%pids;
@@ -602,7 +601,8 @@ sub recorder_config
 	my $finalfile = "/etc/default/ot-recorder";
 	rename $file, $lbpconfigdir."/ot-recorder";
 	copy $savefile, $finalfile;
-	system("/bin/sh $lbpbindir/restart.sh");
+	`cd $lbpbindir ; $lbpbindir/restart.sh > /dev/null 2>&1 &`;
+	#system("/bin/sh $lbpbindir/restart.sh");
 	unlink $lbpconfigdir."/ot-recorder";
 	return;
 }
@@ -619,14 +619,6 @@ sub pids
 	$pids{'mosquitto'} = trim(`pgrep mosquitto`) ;
 }	
 
-sub pkill 
-{
-	my ($process) = @_;
-	`pkill $process`;
-	Time::HiRes::sleep(0.2);
-	`pkill --signal SIGKILL $process`;
-}	
-	
 sub ajax_header
 {
 	print $cgi->header(
