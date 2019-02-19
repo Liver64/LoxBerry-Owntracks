@@ -55,7 +55,7 @@ my $recorderhttpport 			= "8083";
 #my $file 						= "/etc/default/ot-recorder";
 my $pluginlogfile				= "owntracks.log";
 my $helplink 					= "https://www.loxwiki.eu/display/LOXBERRY/Owntracks";
-my $log 						= LoxBerry::Log->new ( name => 'Owntracks UI', filename => $lbplogdir ."/". $pluginlogfile, append => 1, addtime => 1 );
+#my $log 						= LoxBerry::Log->new ( name => 'Owntracks UI', filename => $lbplogdir ."/". $pluginlogfile, append => 1, addtime => 1 );
 my $pcfg 						= new Config::Simple($lbpconfigdir . "/" . $pluginconfigfile);
 our $error_message				= "";
 
@@ -88,8 +88,6 @@ my $myip =  LoxBerry::System::get_localip();
 my $cgi = CGI->new;
 $cgi->import_names('R');
 
-# Everything from Forms
-LOGSTART "Owntracks UI started";
 
 
 #########################################################################
@@ -106,7 +104,7 @@ if( $q->{ajax} )
 {
 	#require JSON;
 	my %response;
-	
+		
 	ajax_header();
 	if( $q->{ajax} eq "getpids" ) {
 		pids();
@@ -122,6 +120,10 @@ if( $q->{ajax} )
 	exit;
 }
 
+my $log = LoxBerry::Log->new ( name => 'Owntracks UI', filename => $lbplogdir ."/". $pluginlogfile, append => 1, addtime => 1 );
+
+# Everything from Forms
+LOGSTART "Owntracks UI started";
 
 
 #########################################################################
@@ -276,6 +278,7 @@ if ($pcfg->param("LOCATION.longitude") eq '' or $pcfg->param("LOCATION.latitude"
 
 	$mqtt_account = $mqttcfg->{Credentials}{brokeruser};
 	$mqtt_pass = $mqttcfg->{Credentials}{brokerpass};
+	LOGDEB "MQTT credentials obtained";
 	
 	# get MQTT Config
 	my $configfile = "$lbhomedir/config/plugins/mqttgateway/mqtt.json";
@@ -283,6 +286,7 @@ if ($pcfg->param("LOCATION.longitude") eq '' or $pcfg->param("LOCATION.latitude"
 	my $mqttpcfg = $jsonobj1->open(filename => $configfile);
 
 	$mqtt_host = $mqttpcfg->{Main}{brokeraddress};
+	LOGDEB "MQTT hostname obtained";
 		
 	# Navbar
 	$navbar{10}{Name} = "$SL{'BASIC.NAVBAR_FIRST'}";
@@ -409,10 +413,12 @@ sub save
 			$pcfg->param("CONNECTION.track", "true");
 			$pcfg->save() or &error;
 			recorder_config();
+			LOGOK "Recorder settings saved, recorder restarted";
 		}
 	} else {
 		$pcfg->param("CONNECTION.track", "false");
 		system("sudo systemctl stop ot-recorder");
+		LOGDEB "Recorder stopped";
 	}
 		
 	$pcfg->param("CONNECTION.dyndns", "$R::dyndns");
@@ -617,6 +623,7 @@ sub pids
 	$pids{'recorder'} = (split(" ",`ps -A | grep \"ot-recorder\"`))[0];
 	$pids{'mqttgateway'} = trim(`pgrep mqttgateway.pl`) ;
 	$pids{'mosquitto'} = trim(`pgrep mosquitto`) ;
+	LOGDEB "PIDs updated";
 }	
 
 sub ajax_header
@@ -626,6 +633,7 @@ sub ajax_header
 			-charset => 'utf-8',
 			-status => '200 OK',
 	);	
+	LOGOK "AJAX posting received and processed";
 }	
 
 
