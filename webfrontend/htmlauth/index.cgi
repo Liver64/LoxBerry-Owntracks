@@ -1,5 +1,11 @@
 #!/usr/bin/perl -w
 
+# ToDo
+# tid in Abhängigkeit vom User - DONE
+# Uninstall Script
+# Pre-root anpassen
+# MQTT Settings aus Perl raus aktualisieren
+
 ##########################################################################
 # Modules required
 ##########################################################################
@@ -117,6 +123,7 @@ if( $q->{ajax} )
 		$response{pids} = \%pids;
 		print JSON::encode_json(\%response);
 	}
+	&form;
 	exit;
 }
 
@@ -287,7 +294,7 @@ if ($pcfg->param("LOCATION.longitude") eq '' or $pcfg->param("LOCATION.latitude"
 
 	$mqtt_host = $mqttpcfg->{Main}{brokeraddress};
 	LOGDEB "MQTT hostname obtained";
-		
+	
 	# Navbar
 	$navbar{10}{Name} = "$SL{'BASIC.NAVBAR_FIRST'}";
 	$navbar{10}{URL} = './index.cgi';
@@ -379,6 +386,9 @@ sub form
 	$rowsuser .= "<input type='hidden' id='countuser' name='countuser' value='$countuser'>\n";
 	$template->param("ROWSUSER", $rowsuser);
 	
+	# execute check if User(s) need to be migrated
+	migrate_user($countuser);
+	
 	#$content = $pid;
 	#print_test($content);
 	#exit;
@@ -423,6 +433,7 @@ sub save
 		
 	$pcfg->param("CONNECTION.dyndns", "$R::dyndns");
 	$pcfg->param("CONNECTION.port", "$R::port");
+	# turn on if TLS works
 	#$pcfg->param("CONNECTION.tls", "$R::tls");
 	$pcfg->param("LOCATION.location", "$R::location");
 	$pcfg->param("LOCATION.radius", "$R::radius");
@@ -430,23 +441,20 @@ sub save
 	$pcfg->param("LOCATION.longitude", "$R::longitude");
 	$pcfg->param("RECORDER_HTTP.OTR_HTTPHOST", "$myip");
 	$pcfg->param("RECORDER_HTTP.OTR_HTTPPORT", "$recorderhttpport");
-	$pcfg->param("RECORDER_MAIN.OTR_STORAGEDIR", "/var/spool/owntracks/recorder/store");
-	$pcfg->param("RECORDER_MAIN.OTR_CONFIG", "/etc/default/ot-recorder");
-	$pcfg->param("RECORDER_MAIN.OTR_TOPICS", "owntracks/#");
-	$pcfg->param("RECORDER_MQTT.OTR_PORT", "1883");
 	
 	# save all user
 	for ($i = 1; $i <= $countuser; $i++) {
-		if ( param("chkuser$i") ) { # if user should be deleted
-			$pcfg->delete( "USER.name" . "[$i]" );
+		my $username = quotemeta(param("username$i"));
+		if ( param("chkuser$i") ) { # if radio should be deleted
+			$pcfg->delete("USER$i.name", $username);
+			$pcfg->delete("USER$i");
+			LOGDEB "User: $username deleted";
 		} else { # save
-			my $username = param("username$i");
-			$pcfg->param( "USER.name" . "[$i]", "$username");
+			$pcfg->param("USER$i.name", $username);
+			LOGDEB "User: $username saved";
 		}
 	}
 	$pcfg->save() or &error;
-	
-	LOGDEB "User has been saved.";
 	LOGOK "All settings has been saved";
 		
 	# SAVE_MESSAGE
@@ -537,8 +545,24 @@ sub topics_form
 }
 
 
+##########################################################################
+# Sub Update MQTT
+##########################################################################
+
+sub update_mqtt
+{
+	# get MQTT Config
+	my $configfile = "$lbhomedir/config/plugins/mqttgateway/mqtt.json";
+	my $jsonobj1 = LoxBerry::JSON->new();
+	my $mqttpcfg = $jsonobj1->open(filename => $configfile);
+
+	$mqtt_conv = $mqttpcfg->{Main}{conversions};
+	$mqtt_subs = $mqttpcfg->{Main}{subscriptions};
+	
+}
+
 #####################################################
-# Form-Sub
+# Sub compare_config
 #####################################################
 
 sub compare_config 
@@ -572,8 +596,9 @@ sub compare_config
 	}
 }
 
+
 #####################################################
-# Form-Sub
+# Sub Recorder Configuration
 #####################################################
 
 sub recorder_config 
@@ -597,7 +622,7 @@ sub recorder_config
 	print FILE "OTR_HTTPPORT=\"$recorderhttpport\"\n";
 	#print FILE "OTR_HTTPLOGDIR=\n";
 	print FILE "OTR_BROWSERAPIKEY=\"$R::googleapikey\"\n";
-	print FILE "OTR_TOPICS=\"owntracks/#\"\n";
+	print FILE "OTR_TOPICS=\"owntracks/#\" \"owntracks/+/+\"\n";
 
 	# close the file.
 	close FILE;
@@ -640,7 +665,7 @@ sub ajax_header
 
 
 #####################################################
-# Form-Sub
+# Form-Tracking (old)
 #####################################################
 
 sub tracking 
@@ -649,6 +674,31 @@ sub tracking
 	printtemplate();
 	exit;
 }
+
+
+#####################################################
+# Sub migrate User accounts
+#####################################################
+
+sub migrate_user 
+{	
+	if ($pcfg->param("CONNECTION.migration") ne "completed")  {
+		# Migrate
+		for ($i = 1; $i <= $countuser; $i++) {
+			our $old_user = $pcfg->param("USER.name" . "[$i]");
+			$pcfg->param("USER$i.name", "$old_user");
+			LOGDEB "Migration: USER.name$i=$old_user has been migrated to USER$i.name=$old_user";
+		}
+		# delete
+		for ($i = 1; $i <= $countuser; $i++) {
+			$pcfg->delete( "USER.name" . "[$i]" );
+			$pcfg->delete( "USER" );
+		}
+		$pcfg->param("CONNECTION.migration", "completed");
+		$pcfg->save() or &error;
+	}
+}
+
 	
 #####################################################
 # Error-Sub

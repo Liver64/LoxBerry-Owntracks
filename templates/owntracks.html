@@ -249,7 +249,7 @@
 
 $(document).on('pageinit', function() {
 	track_on();
-	//update_pid();
+	//update_pids();
 });
 
 
@@ -294,7 +294,7 @@ function AddUser() {
   var cellRight = row.insertCell(0);
   cellRight.innerHTML = '<tr><td style="width: 4%"><INPUT type="checkbox" style="width: 100%" name="chkuser' + iteration + '" id="chkuser' + iteration + '" align="center"/></td>\n'
   var cellRight = row.insertCell(1);
-  cellRight.innerHTML = '<td style="width: 22%"><input id="username' + iteration + '" name="username' + iteration + '" type="text" placeholder="<TMPL_VAR MENU.USER_LISTING>" value="" align="left" data-validation-error-msg="<TMPL_VAR VALIDATION.USER_NAME>" data-validation-rule="^([ÃƒÂ¤ÃƒÂ¶ÃƒÂ¼Ãƒâ€“ÃƒÅ“ÃƒÅ¸Ãƒâ€ž A-Za-z0-9\ ]){1,20}" style="width: 100%;"></td>\n'
+  cellRight.innerHTML = '<td style="width: 22%"><input id="username' + iteration + '" name="username' + iteration + '" type="text" placeholder="<TMPL_VAR MENU.USER_LISTING>" value="" align="left" data-validation-error-msg="<TMPL_VAR VALIDATION.USER_NAME>" data-validation-rule="^([äöüÖÜßÄ A-Za-z0-9\ ]){1,20}" style="width: 100%;"></td>\n'
   var cellRight = row.insertCell(2);
   cellRight.innerHTML = '<td style="width: 4%"><font size="3" color="green"><TMPL_VAR BUTTON.SAVE_CONFIG_MESSAGE></font></td>\n'
   console.log("New row inserted. New countuser=" + iteration + "");
@@ -320,9 +320,8 @@ function downloadFile(filePath)  {
 
 
 
-function update_pid() {
-	//$('#recorderstate').html("<font face='Arial' size='3' color='blue'><TMPL_VAR VALIDATION.WAIT_ANSWER></font>");
-
+function update_pids() {
+	
 	$.post( 'index.cgi', {
 	ajax: 'getpids' })
 
@@ -363,7 +362,8 @@ $("#restart").click(function(){
 		console.log("Restart pressed");
 		$("#restart").attr("disabled", true);
 		$.post( 'index.cgi', {
-			ajax: 'restartrecorder' })
+		ajax: 'restartrecorder' })
+		
 		.done(function(resp) {
 			console.log( "ajax_post", "success", resp );
 	  })
@@ -373,7 +373,7 @@ $("#restart").click(function(){
 	  .always(function(resp) {
 			console.log( "ajax_post", "finished", resp );
 		$("#restart").attr("disabled", false);
-		update_pid();
+		update_pids();
 			
 	  });
 	});
@@ -384,9 +384,9 @@ $("#restart").click(function(){
 
 $(document).ready( function ()  {
 
-		setInterval(function(){ update_pid(); }, 5000);
-		update_pid();
-		
+		setInterval(function(){ update_pids(); }, 5000);
+		update_pids();
+				
 		//var iteration = $('#users >tbody >tr').length;	
 		var iteration = document.getElementById('countuser').value;
 		iteration = parseInt(iteration)
