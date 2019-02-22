@@ -5,7 +5,7 @@ if [ ! -d "REPLACELBPCONFIGDIR/recorder" ]; then
 	curl http://repo.owntracks.org/repo.owntracks.org.gpg.key | sudo apt-key add -
 	echo "deb  http://repo.owntracks.org/debian stretch main" | sudo tee /etc/apt/sources.list.d/owntracks.list > /dev/null
 	apt-get -y update
-	apt-get -y install ot-recorder
+	apt-get y --force-yes install ot-recorder
 	install -m444 /usr/share/doc/ot-recorder/ot-recorder.service /etc/systemd/system/ot-recorder.service
 	systemctl enable ot-recorder
 	systemctl start ot-recorder
