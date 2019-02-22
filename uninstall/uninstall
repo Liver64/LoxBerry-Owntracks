@@ -1,0 +1,23 @@
+#!/bin/sh
+# Will be executed as user "root".
+
+# stop and disable service
+systemctl stop ot-recorder
+systemctl disable ot-recorder
+
+apt-get –-purge remove ot-recorder
+
+# remove files
+unlink /usr/sbin/ot-recorder
+unlink /usr/bin/ocat
+rm -r /var/spool/owntracks
+unlink /etc/systemd/system/ot-recorder.service
+unlink /etc/default/ot-recorder
+rm -r /usr/share/owntracks/recorder/htdocs
+rm -r /usr/share/owntracks/recorder
+rm -r /usr/share/owntracks
+rm -r REPLACELBPCONFIGDIR/recorder
+rm -r REPLACELBPDATADIR/recorder
+
+# Exit with Status 0
+exit 0
