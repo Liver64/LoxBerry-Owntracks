@@ -715,6 +715,7 @@ sub migrate_user
 		}
 		$pcfg->param("CONNECTION.migration", "completed");
 		$pcfg->save() or &error;
+		my $filemove = qx(/usr/bin/php $lbphtmldir/migration_app_files.php);
 	}
 }
 
