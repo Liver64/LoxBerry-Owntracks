@@ -101,26 +101,6 @@ $FileNameOT = prepare_config_file($ot_config_file, $credentials);
 echo($FileNameOT);
 ##########################################################################################
 
-#$delimiter = chr(1);
-#$eoldelimiter = chr(2) . "\n";
-#$fp = fopen('/etc/default/ot-recorder','r');
-#while (!feof($fp)) {
-#    $line = stream_get_line($fp, 4096, $eoldelimiter); //use 2048 if very long lines
-
-#    if ($line[0] === '#' or $line[0] === '//') continue;  //Skip lines that start with #
-#    $loop++;
-#	my_filter($line);
-#}
-
-#function my_filter($var){
-#    return $var[0] != '#';
-# }
- #$array = array_filter(file('/etc/default/ot-recorder'),'my_filter');
-
-#print_r($array);
-#exit;
-#"/etc/default/ot-recorder"
-
 # get credentials
 function get_mqtt_cred($FileName)  {
 	$credentials = File_Get_Array_From_JSON($FileName, $zip=false);
@@ -229,10 +209,12 @@ function prepare_config_file($ot_config_file, $credentials)  {
 	$ot_config_file['waypoints'][0]['tst'] = time();
 	LOGGING("Owntracks App configfile has been created", 7);
 	//print_r($ot_config_file);
-	$FileNameOT = LBPHTMLAUTHDIR."/files/OT_".$postData['name']."_".$postData['location']."_".$postData['radius']."_".date("Ymd").".otrc";
+	$FileNameOT = LBPHTMLAUTHDIR."/files/user_app/OT_".$postData['name']."_".$postData['location']."_".$postData['radius']."_".date("Ymd").".otrc";
+	$FileNameOTName = LBPHTMLAUTHDIR."/files/user_app/".$postData['name'].".otrc";
 	//$Fname = $L['VALIDATION.SAVE_FILE']. " '".$postData['name']."_".$postData['location']."_".$postData['radius']."_".date("Ymd").".otrc' ".$L['VALIDATION.SAVE_FILE_WHERE'];
 	//echo $FileNameOT;
 	File_Put_Array_As_JSON($FileNameOT, $ot_config_file, $zip=false);
+	File_Put_Array_As_JSON($FileNameOTName, $ot_config_file, $zip=false);
 	$final_file_name = "OT_".$postData['name']."_".$postData['location']."_".$postData['radius']."_".date("Ymd").".otrc";
 	LOGGING("Owntracks App configfile has been saved to data folder", 5);
 	//return $ot_config_file;
