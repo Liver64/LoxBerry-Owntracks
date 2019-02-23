@@ -340,6 +340,7 @@ function downloadFile(filePath)  {
 	document.body.removeChild(a);
 	console.log("File: " + a.download + " saved");
 	$("#main_form").trigger('create');
+	//location.reload();
 }
 
 
@@ -487,6 +488,7 @@ $(document).ready( function ()  {
         }).always(function(data) {
 			//console.log( "finished" );
 		});
+		location.reload();
     });
     
 $('#track').on('change',function(){
