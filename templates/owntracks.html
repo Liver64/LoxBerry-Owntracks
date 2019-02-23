@@ -185,11 +185,12 @@
 							<th align="center" style="width: 4%">
 							<img class='ico_delete' src='/plugins/<TMPL_VAR PLUGINDIR>/images/recycle-bin.png' align="center" border='0' width='24' height='24'></th>
 						    <th align="left" style="height: 33px; width: 22%;"><TMPL_VAR MENU.USERNAME></th>
-						    <th align="left" style="height: 33px; width: 4%;"><TMPL_VAR MENU.CONFIG_FILE></th>
+						    <th align="left" style="height: 33px; width: 4%;"><TMPL_VAR MENU.CONFIG_FILE>
+							</th>
 							<tbody>
-							<div name="userdyn" id="userdyn">
-								<TMPL_VAR ROWSUSER>
-							</div>
+								<div name="userdyn" id="userdyn">
+									<TMPL_VAR ROWSUSER>
+								</div>
 							</tbody>
 						</table>
 					</tr>
@@ -206,13 +207,34 @@
 <!-- Fields New line-->
 
 <tr>
-	<p>
+	<table>
 		<!--<center>-->
-			<td valign="middle" style="height: 33px; width: 127%; text-align: middle;">
+			<td valign="middle" style="height: 33px; width: 30%; text-align: middle;">
 				<INPUT type="button" value="<TMPL_VAR BUTTON.ADD_USER>" data-inline="true" data-mini="true" data-icon="plus" onclick="AddUser()">
 			</td>
 		<!--center>-->
-	</p>
+			<td  class="legend" valign="middle" style="height: 33px; width: 80px; text-align: middle;">
+			</td>
+			<td  class="legend" valign="middle" style="height: 33px; width: 8px; text-align: middle;">
+				<img src="/plugins/<TMPL_VAR PLUGINDIR>/images/red.png">
+			</td>
+			<td class="legend" valign="middle" style="height: 33px; width: 280px; text-align: middle;">
+				<label id="lred"><TMPL_VAR VALIDATION.LEGEND_RED></label>
+			</td>
+			<td class="legend" valign="middle" style="height: 33px; width: 8px; text-align: middle;">
+				<img src="/plugins/<TMPL_VAR PLUGINDIR>/images/yellow.png">
+			</td>	
+			<td class="legend" valign="middle" style="height: 33px; width: 280px; text-align: middle;">
+				<label id="lred"><TMPL_VAR VALIDATION.LEGEND_YELLOW></label>
+			</td>
+			<td class="legend" valign="middle" style="height: 33px; width: 8px; text-align: middle;">
+				<img src="/plugins/<TMPL_VAR PLUGINDIR>/images/green.png">
+			</td>	
+			<td class="legend" valign="middle" style="height: 33px; width: 280px; text-align: middle;">
+				<label id="lred"><TMPL_VAR VALIDATION.LEGEND_GREEN></label>
+			</td>
+	
+	</table>
 </tr>
 
 <!-- End Fields New line-->
@@ -257,16 +279,15 @@ $(document).on('pageinit', function() {
 function track_on()  {
 var trackvalue = $('#track').val();
 	if (trackvalue == "true" ) {
-  		//alert(trackvalue); 
   		$('#btnrestart').fadeIn(600);
   		$('.api').fadeIn(600);
-
-  		//$('#googleapikey').removeClass('ui-disabled');
-  	} else {
-  		//$('#googleapikey').addClass('ui-disabled');
+  		$('.legend').fadeIn(600);
+  		$('.picture').fadeIn(600);
+ 	} else {
   		$('#btnrestart').fadeOut(600);
   		$('.api').fadeOut(600);
-
+  		$('.legend').fadeOut(600);
+  		$('.picture').fadeOut(600);
   	}
 }
 
@@ -297,6 +318,8 @@ function AddUser() {
   cellRight.innerHTML = '<td style="width: 22%"><input id="username' + iteration + '" name="username' + iteration + '" type="text" placeholder="<TMPL_VAR MENU.USER_LISTING>" value="" align="left" data-validation-error-msg="<TMPL_VAR VALIDATION.USER_NAME>" data-validation-rule="^([äöüÖÜßÄ A-Za-z0-9\ ]){1,20}" style="width: 100%;"></td>\n'
   var cellRight = row.insertCell(2);
   cellRight.innerHTML = '<td style="width: 4%"><font size="3" color="green"><TMPL_VAR BUTTON.SAVE_CONFIG_MESSAGE></font></td>\n'
+  var cellRight = row.insertCell(3);
+  cellRight.innerHTML = '<img src="/plugins/<TMPL_VAR PLUGINDIR>/images/red.png" id="tra' + iteration + '" name="tra' + iteration + '">\n'  
   console.log("New row inserted. New countuser=" + iteration + "");
   $('input[type=text].countuser').val(iteration);		
   // Recreate JQUERY styles
@@ -330,7 +353,7 @@ function update_pids() {
 		if(resp.pids.recorder != null) {
 			$("#recorderstate").attr("style", "color:green").html("Tracking running (PID"+resp.pids.recorder+")");
 		} else {
-			$("#recorderstate").attr("style", "color:red").html("Tracking not running");
+			$("#recorderstate").attr("style", "color:red").html("Tracking not running or restarting");
 		}
 		if(resp.pids.mqttgateway != null) {
 			$("#gatewaystate").attr("style", "color:green").html("MQTT Gateway running (PID"+resp.pids.mqttgateway+")");
@@ -345,7 +368,6 @@ function update_pids() {
 		
 	})
 	.fail(function(resp) {
-  		//alert(resp);
 		$("#recorderstate").attr("style", "color:red").html("Failed to query PID");
 		console.log( "ajax_post", "error", resp );
 	})
@@ -391,16 +413,12 @@ $(document).ready( function ()  {
 		var iteration = document.getElementById('countuser').value;
 		iteration = parseInt(iteration)
 		iteration += 1;
-		//console.log(iteration);
-		//document.getElementById("countuser").value = iteration;
 		for (i = 1; i < iteration; ++i) {
 			validate_enable('#username' + i + '');
 			validate_chk_object(['#username' + i + '']);
-			//alert('#username' + i + '');
 			console.log('#username' + i + '');
 		}
 		validate_enable('#dyndns');
-		//validate_enable('#googleapikey');
 		validate_enable('#port');
 		validate_enable('#location');
 		validate_enable('#radius');
@@ -455,12 +473,11 @@ $(document).ready( function ()  {
         		rowIndex: rowId
         		
 		}).done(function(data) {
-		    //$('#response' + rowId +'').html("<font face='Arial' size='3' color='green'><TMPL_VAR VALIDATION.SAVE_FILE> <b>" + data + "</b> <TMPL_VAR VALIDATION.SAVE_FILE_WHERE></font>");
 		    $('#response' + rowId +'').html("<font face='Arial' size='3' color='green'><TMPL_VAR VALIDATION.SAVE_FILE></font>");
 		    console.log("ajax_post", "success");
-		    path = "http://<TMPL_VAR LBADR>/admin/plugins/<TMPL_VAR PLUGINDIR>/files/";
+		    path = "http://<TMPL_VAR LBADR>/admin/plugins/<TMPL_VAR PLUGINDIR>/files/user_app/";
 		    filePath = path + data;
-		    //console.log("Source: " + filePath);
+		    console.log("Source: " + filePath);
 		    // auto download file
 		    downloadFile(filePath);
 		}).fail(function (jqXHR, textStatus, errorThrown) {
@@ -474,19 +491,21 @@ $(document).ready( function ()  {
 $('#track').on('change',function(){
 	var trackvalue = $('#track').val();
 	if (trackvalue == "true" ) {
-  		//alert(trackvalue); 
   		$('#btnrestart').fadeIn(600);
   		$('.api').fadeIn(600);
-  		//$('#googleapikey').removeClass('ui-disabled');
+  		$('.legend').fadeIn(600);
+  		$('.picture').fadeIn(600);
+
+
   	} else {
-  		//$('#googleapikey').addClass('ui-disabled');
   		$('#btnrestart').fadeOut(600);
   		$('.api').fadeOut(600);
+  		$('.legend').fadeOut(600);
+  		$('.picture').fadeOut(600);
+
   	}
 });  
 	
-	
-
 
  
 });

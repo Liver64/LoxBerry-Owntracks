@@ -2,9 +2,9 @@
 
 # ToDo
 # tid in Abhängigkeit vom User - DONE
-# Uninstall Script
+# Uninstall Script - DONE
 # Pre-root anpassen
-# MQTT Settings aus Perl raus aktualisieren
+# MQTT Settings aus Perl raus aktualisieren - NO
 
 ##########################################################################
 # Modules required
@@ -190,9 +190,11 @@ if (!-r $lbpconfigdir . "/" . $pluginconfigfile)
 if (!-d $lbphtmlauthdir . "/files") 
 {	
 	mkdir $lbphtmlauthdir . "/files";
-	LOGOK "App config file directory created";
+	mkdir $lbphtmlauthdir . "/files/user_app";
+	mkdir $lbphtmlauthdir . "/files/user_photo";
+	LOGOK "App config file and photo directory created";
 } else {
-	LOGDEB "App config file directory already there";
+	LOGDEB "App config file and photo directory already there";
 }
 
 ##########################################################################
@@ -375,6 +377,14 @@ sub form
 			$rowsuser .= "<tr><td style='width: 4%;'><INPUT type='checkbox' style='width: 100%' name='chkuser$countuser' id='chkuser$countuser' align='left'/></td>\n";
 			$rowsuser .= "<td style='width: 22%'><input id='username$countuser' name='username$countuser' type='text' class='uname' placeholder='$SL{'MENU.USER_LISTING'}' value='$fields[0]' align='left' data-validation-error-msg='$SL{'VALIDATION.USER_NAME'}' data-validation-rule='^([äöüÖÜßÄ A-Za-z0-9\ ]){1,20}' style='width: 100%;'></td>\n";
 			$rowsuser .= "<td style='width: 4%'><input name='create$countuser' id='create$countuser' class='createconfbutton' type='button' data-role='button' data-inline='true' data-mini='true' onclick='' data-icon='check' value='$SL{'BUTTON.NEW_CONFIG'}'></td>\n";
+			
+			# check if actual data been recieved
+			my $filecheck = "/var/spool/owntracks/recorder/store/waypoints/loxberry/$fields[0]/loxberry-$fields[0].otrw";
+			if (!-r $filecheck) {
+					$rowsuser .= "<td style='width: 2%'><img class='picture' src='/plugins/$lbpplugindir/images/yellow.png' id='tra$countuser' name='tra$countuser'></td>\n";
+				} else {
+					$rowsuser .= "<td style='width: 2%'><img class='picture' src='/plugins/$lbpplugindir/images/green.png' id='tra$countuser' name='tra$countuser'></td>\n";
+				}
 			$rowsuser .= "<td style='width: 90%'><div id='response$countuser'></div></td>\n";
 		}
 	}
@@ -622,7 +632,7 @@ sub recorder_config
 	print FILE "OTR_HTTPPORT=\"$recorderhttpport\"\n";
 	#print FILE "OTR_HTTPLOGDIR=\n";
 	print FILE "OTR_BROWSERAPIKEY=\"$R::googleapikey\"\n";
-	print FILE "OTR_TOPICS=\"owntracks/#\" \"owntracks/+/+\"\n";
+	print FILE "OTR_TOPICS=\"owntracks/# owntracks/+/+\"\n";
 
 	# close the file.
 	close FILE;
