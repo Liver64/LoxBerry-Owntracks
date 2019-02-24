@@ -1,4 +1,4 @@
-﻿<style>
+<style>
 
 </style>
 
@@ -21,12 +21,12 @@
 
 <table class="formtable" border="0" width="100%" cellpadding="10">
 	<tr>
-	<div style="display:flex;align-items:center;justify-content:center;">
+		<div class="recorder" style="display:flex;align-items:center;justify-content:center;">
 				<span id="recorderstate"></span>&nbsp;|
 				&nbsp;<span id="gatewaystate"></span>&nbsp;| 
 				&nbsp;<span id="mosquittostate"></span>&nbsp;|
 				&nbsp;<font COLOR="blue"><TMPL_VAR SAVE></font>
-			</div>
+		</div>
 		<div class="wide">
 		<img width="64" height="64" src="/plugins/<TMPL_VAR PLUGINDIR>/images/owntracks_64.png" alt="">
 		<TMPL_VAR BASIC.PLUGIN_NAME>
@@ -279,15 +279,17 @@ $(document).on('pageinit', function() {
 function track_on()  {
 var trackvalue = $('#track').val();
 	if (trackvalue == "true" ) {
-  		$('#btnrestart').fadeIn(600);
+  		$('#restart').fadeIn(600);
   		$('.api').fadeIn(600);
   		$('.legend').fadeIn(600);
   		$('.picture').fadeIn(600);
+  		$('.recorder').fadeIn(600);
  	} else {
-  		$('#btnrestart').fadeOut(600);
+  		$('#restart').fadeOut(600);
   		$('.api').fadeOut(600);
   		$('.legend').fadeOut(600);
   		$('.picture').fadeOut(600);
+  		$('.recorder').fadeOut(600);
   	}
 }
 
@@ -494,18 +496,17 @@ $(document).ready( function ()  {
 $('#track').on('change',function(){
 	var trackvalue = $('#track').val();
 	if (trackvalue == "true" ) {
-  		$('#btnrestart').fadeIn(600);
+  		$('#restart').fadeIn(600);
   		$('.api').fadeIn(600);
   		$('.legend').fadeIn(600);
   		$('.picture').fadeIn(600);
-
-
-  	} else {
-  		$('#btnrestart').fadeOut(600);
+  		$('.recorder').fadeIn(600);
+ 	} else {
+  		$('#restart').fadeOut(600);
   		$('.api').fadeOut(600);
   		$('.legend').fadeOut(600);
   		$('.picture').fadeOut(600);
-
+  		$('.recorder').fadeOut(600);
   	}
 });  
 	
