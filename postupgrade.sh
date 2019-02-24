@@ -10,6 +10,9 @@ cp -p -v -r /tmp/$1\_upgrade/config/$3/* $5/config/plugins/$3/
 echo "<INFO> Copy back existing log files"
 cp -p -v -r /tmp/$1\_upgrade/log/$3/* $5/log/plugins/$3/ 
 
+echo "<INFO> Copy back existing User App files"
+cp -p -v -r /tmp/$1\_upgrade/webfrontend/htmlauth/files/* $5/webfrontend/htmlauth/plugins/$3/files 
+
 rm -r /tmp/$1\_upgrade
 
 exit 0
