@@ -58,10 +58,8 @@ my $maintemplatefilename	 	= "owntracks.html";
 my $errortemplatefilename 		= "error.html";
 my $pluginconfigfile 			= "owntracks.cfg";
 my $recorderhttpport 			= "8083";
-#my $file 						= "/etc/default/ot-recorder";
 my $pluginlogfile				= "owntracks.log";
 my $helplink 					= "https://www.loxwiki.eu/display/LOXBERRY/Owntracks";
-#my $log 						= LoxBerry::Log->new ( name => 'Owntracks UI', filename => $lbplogdir ."/". $pluginlogfile, append => 1, addtime => 1 );
 my $pcfg 						= new Config::Simple($lbpconfigdir . "/" . $pluginconfigfile);
 our $error_message				= "";
 
@@ -699,23 +697,33 @@ sub tracking
 # Sub migrate User accounts
 #####################################################
 
-sub migrate_user 
+sub migrate_user($countuser)
 {	
 	if ($pcfg->param("CONNECTION.migration") ne "completed")  {
+		if (!-d $lbphtmlauthdir."/files/user_app") {
+			mkdir($lbphtmlauthdir."/files/user_app");
+			LOGDEB "Migration: Directory '$lbphtmlauthdir/files/user_app' has been created";
+		}
 		# Migrate
 		for ($i = 1; $i <= $countuser; $i++) {
-			our $old_user = $pcfg->param("USER.name" . "[$i]");
-			$pcfg->param("USER$i.name", "$old_user");
+			our $old_user = $pcfg->param("USER.name$i");
+			$pcfg->param("USER$i.name", $old_user);
 			LOGDEB "Migration: USER.name$i=$old_user has been migrated to USER$i.name=$old_user";
 		}
 		# delete
 		for ($i = 1; $i <= $countuser; $i++) {
-			$pcfg->delete( "USER.name" . "[$i]" );
+			our $del_old = $pcfg->param("USER.name$i");
+			$pcfg->delete("USER.name$i");
+			LOGDEB "Deletion: USER.name$i=$del_old has been deleted";
 			$pcfg->delete( "USER" );
 		}
-		$pcfg->param("CONNECTION.migration", "completed");
+		$pcfg->param("CONNECTION.migration", "completed");	
 		$pcfg->save() or &error;
+		LOGDEB "Migration saved and completed";
+		# move files
+		LOGDEB "Move of files has been called";
 		my $filemove = qx(/usr/bin/php $lbphtmldir/migration_app_files.php);
+		LOGDEB "All files has been moved";
 	}
 }
 
