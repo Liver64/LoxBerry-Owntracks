@@ -14,7 +14,7 @@ use LoxBerry::System;
 use LoxBerry::Web;
 use LoxBerry::Log;
 use LoxBerry::JSON;
-
+use Data::Dumper;
 use CGI;
 use CGI qw( :standard);
 use File::Copy qw(copy);
@@ -496,6 +496,7 @@ sub topics_form
 	my $datafile = "/dev/shm/mqttgateway_topics.json";
 	my $relayjsonobj = LoxBerry::JSON::JSONIO->new();
 	my $relayjson = $relayjsonobj->open(filename => $datafile);
+	#print Dumper $relayjson;
 	my $http_table;
 	my $http_count;
 	my $udp_count;
@@ -573,8 +574,8 @@ sub update_mqtt
 	my $jsonobj1 = LoxBerry::JSON->new();
 	my $mqttpcfg = $jsonobj1->open(filename => $configfile);
 
-	$mqtt_conv = $mqttpcfg->{Main}{conversions};
-	$mqtt_subs = $mqttpcfg->{Main}{subscriptions};
+	#$mqtt_conv = $mqttpcfg->{Main}{conversions};
+	##$mqtt_subs = $mqttpcfg->{Main}{subscriptions};
 	
 }
 
