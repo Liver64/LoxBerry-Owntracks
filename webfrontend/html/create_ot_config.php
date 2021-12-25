@@ -91,7 +91,7 @@ $ot_topics = topics($datafile);
 $credentials = get_mqtt_cred($mqtt_cred);
 $config = get_mqtt_config($mqtt_config);
 $valid_config = validate_mqtt_config($config);
-update_mqtt_config($topic, $topic_conv_enter, $topic_conv_leave);
+##update_mqtt_config($topic, $topic_conv_enter, $topic_conv_leave);
 $ot_config_file = read_tmpl_config_file($ot_template_file);
 $FileNameOT = prepare_config_file($ot_config_file, $credentials);
 
