@@ -1,28 +1,44 @@
 #!/usr/bin/perl -w
 
-# ToDo
-# tid in Abhängigkeit vom User - DONE
-# Uninstall Script - DONE
-# Pre-root anpassen
-# MQTT Settings aus Perl raus aktualisieren - NO
+# Copyright 2018 Oliver Lewald, olewald64@gmail.com
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+# 
+#     http://www.apache.org/licenses/LICENSE-2.0
+# 
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 
 ##########################################################################
-# Modules required
+# Modules
 ##########################################################################
 
 use LoxBerry::System;
 use LoxBerry::Web;
 use LoxBerry::Log;
+use LoxBerry::Storage;
+use LoxBerry::IO;
 use LoxBerry::JSON;
 
+use CGI::Carp qw(fatalsToBrowser);
+use CGI qw/:standard/;
 use CGI;
-use CGI qw( :standard);
-use File::Copy qw(copy);
 use LWP::Simple;
+use LWP::UserAgent;
+use File::HomeDir;
+use Cwd 'abs_path';
 use JSON qw( decode_json );
 use utf8;
-#use warnings;
-#use strict;
+use warnings;
+use strict;
+use Data::Dumper;
+#use Config::Simple '-strict';
 #no strict "refs"; # we need it for template system
 
 ##########################################################################
@@ -41,36 +57,121 @@ $SIG{__DIE__} = sub { our @reason = @_ };
 my $template_title;
 my $saveformdata = 0;
 my $do = "form";
+my $helplink;
+my $maxzap;
 my $helptemplate;
-our $content;
+my $i;
+our $lbv;
+our $countplayers;
+our $rowssonosplayer;
+our $miniserver;
 our $template;
+our $content;
 our %navbar;
-our $pid;
-our $change;
-our $mqtt_host;
-our $mqtt_account;
-our $mqtt_pass;
+our $mqttcred;
+our $cfgm;
 
-my $ip 							= LoxBerry::System::get_localip();
-my $helptemplatefilename		= "help.html";
-my $languagefile 				= "owntracks.ini";
-my $maintemplatefilename	 	= "owntracks.html";
-my $errortemplatefilename 		= "error.html";
-my $pluginconfigfile 			= "owntracks.cfg";
-my $recorderhttpport 			= "8083";
-my $pluginlogfile				= "owntracks.log";
-my $helplink 					= "https://www.loxwiki.eu/display/LOXBERRY/Owntracks";
+my $helptemplatefilename		= "help/help.html";
+my $languagefile 				= "sonos.ini";
+my $maintemplatefilename	 	= "sonos.html";
+my $pluginconfigfile 			= "sonos.cfg";
+my $pluginplayerfile 			= "player.cfg";
+my $pluginlogfile				= "sonos.log";
+# my $XML_file					= "VIU_Sonos_UDP.xml";
+my $lbip 						= LoxBerry::System::get_localip();
+my $lbport						= lbwebserverport();
+my $ttsfolder					= "tts";
+my $mp3folder					= "mp3";
+my $urlfile						= "https://raw.githubusercontent.com/Liver64/LoxBerry-Sonos/master/webfrontend/html/release/info.txt";
+my $log 						= LoxBerry::Log->new ( name => 'Sonos UI', filename => $lbplogdir ."/". $pluginlogfile, append => 1, addtime => 1 );
+my $plugintempplayerfile	 	= "tmp_player.json";
+my $scanzonesfile	 			= "network.php";
+my $udp_file	 				= "ms_inbound.php";
+my $azureregion					= "westeurope"; # Change here if you have a Azure API key for diff. region
+my $helplink 					= "http://www.loxwiki.eu/display/LOXBERRY/Sonos4Loxone";
 my $pcfg 						= new Config::Simple($lbpconfigdir . "/" . $pluginconfigfile);
+my %Config 						= $pcfg->vars() if ( $pcfg );
 our $error_message				= "";
 
+# currently obsolete
+our %soundbars =  (	S9    =>  "PLAYBAR",
+					S11   =>  "PLAYBASE",
+					S14   =>  "BEAM",
+					S31   =>  "BEAM",
+					S15   =>  "CONNECT",
+					S19   =>  "ARC",
+					Sxx   =>  "RAY"
+				);
 
-##########################################################################
 # Set new config options for upgrade installations
-##########################################################################
 
-#if (!defined $pcfg->param("CONNECTION.tls")) {
-#	$pcfg->param("tls", "");
-#} 
+# add new parameter for cachesize
+if (!defined $pcfg->param("MP3.cachesize")) {
+	$pcfg->param("MP3.cachesize", "100");
+} 
+# Rampto Volume
+if ($pcfg->param("TTS.volrampto") eq '')  {
+	$pcfg->param("TTS.volrampto", "25");
+}
+# Rampto type
+if ($pcfg->param("TTS.rampto") eq '')  {
+	$pcfg->param("TTS.rampto", "auto");
+}
+# add new parameter for Volume correction
+if (!defined $pcfg->param("TTS.correction"))  {
+	$pcfg->param("TTS.correction", "8");
+}
+# add new parameter for Azure TTS"
+if (!defined $pcfg->param("TTS.regionms"))  {
+	$pcfg->param("TTS.regionms", $azureregion);
+	$pcfg->save() or &error;
+}
+# add new parameter for Volume phonemute
+if (!defined $pcfg->param("TTS.phonemute"))  {
+	$pcfg->param("TTS.phonemute", "8");
+}
+# add new parameter for waiting time in sec.
+if (!defined $pcfg->param("TTS.waiting"))  {
+	$pcfg->param("TTS.waiting", "10");
+}
+# add new parameter for phonestop
+if (!defined $pcfg->param("VARIOUS.phonestop"))  {
+	$pcfg->param("VARIOUS.phonestop", "0");
+}
+# Function for zapzone
+if (!defined $pcfg->param("VARIOUS.selfunction"))  {
+	$pcfg->param("VARIOUS.selfunction", "nextradio");
+}
+# Reset Time for zapzone
+if (!defined $pcfg->param("VARIOUS.cron"))  {
+	$pcfg->param("VARIOUS.cron", "1");
+}
+# checkonline
+if ($pcfg->param("SYSTEM.checkt2s") eq '')  {
+	$pcfg->param("SYSTEM.checkt2s", "false");
+}
+# maxVolume
+if (!defined $pcfg->param("VARIOUS.volmax"))  {
+	$pcfg->param("VARIOUS.volmax", "0");
+}
+# Loxdaten an MQTT
+if (!defined $pcfg->param("LOXONE.LoxDatenMQTT"))  {
+	$pcfg->param("LOXONE.LoxDatenMQTT", "false");
+}
+# text-to-speech Status
+if (!defined $pcfg->param("TTS.t2son"))  {
+	$pcfg->param("TTS.t2son", "true");
+}
+# Starttime TV Monitoring
+if (!defined $pcfg->param("VARIOUS.starttime"))  {
+	$pcfg->param("VARIOUS.starttime", "7");
+}
+# Endtime TV Monitoring
+if (!defined $pcfg->param("VARIOUS.endtime"))  {
+	$pcfg->param("VARIOUS.endtime", "22");
+}
+$pcfg->save() or &error;
+	
 
 ##########################################################################
 # Read Settings
@@ -78,280 +179,186 @@ our $error_message				= "";
 
 # read language
 my $lblang = lblanguage();
+our %SL = LoxBerry::System::readlanguage($template, $languagefile);
 
 # Read Plugin Version
 my $sversion = LoxBerry::System::pluginversion();
 
 # Read LoxBerry Version
 my $lbversion = LoxBerry::System::lbversion();
-
-# IP-Address
-my $myip =  LoxBerry::System::get_localip();
+#LOGDEB "Loxberry Version: " . $lbversion;
 
 # read all POST-Parameter in namespace "R".
 my $cgi = CGI->new;
 $cgi->import_names('R');
 
+# Get MQTT Credentials
+$mqttcred = LoxBerry::IO::mqtt_connectiondetails();
 
+LOGSTART "Sonos UI started";
 
-#########################################################################
-## Handle all ajax requests 
-#########################################################################
-
-my $q = $cgi->Vars;
-my $saveformdata = $q->{saveformdata};
-
-my %pids;
-my $template;
-
-if( $q->{ajax} ) 
-{
-	#require JSON;
-	my %response;
-		
-	ajax_header();
-	if( $q->{ajax} eq "getpids" ) {
-		pids();
-		$response{pids} = \%pids;
-		print JSON::encode_json(\%response);
-	}
-	if( $q->{ajax} eq "restartrecorder" ) {
-		`cd $lbpbindir ; $lbpbindir/restart.sh > /dev/null 2>&1 &`;
-		pids();
-		$response{pids} = \%pids;
-		print JSON::encode_json(\%response);
-	}
-	&form;
-	exit;
-}
-
-my $log = LoxBerry::Log->new ( name => 'Owntracks UI', filename => $lbplogdir ."/". $pluginlogfile, append => 1, addtime => 1 );
-
-# Everything from Forms
-LOGSTART "Owntracks UI started";
 
 
 #########################################################################
 # Parameter
 #########################################################################
 
-$saveformdata = defined $R::saveformdata ? $R::saveformdata : undef;
-$do = defined $R::do ? $R::do : "form";
+#$saveformdata = defined $R::saveformdata ? $R::saveformdata : undef;
+#$do = defined $R::do ? $R::do : "form";
+
 
 ##########################################################################
-# Set LoxBerry SDK to debug in plugin 
+# Init Main Template
+##########################################################################
+inittemplate();
+
+##########################################################################
+# Set LoxBerry SDK to debug in plugin is in debug
 ##########################################################################
 
 if($log->loglevel() eq "7") {
 	$LoxBerry::System::DEBUG 	= 1;
 	$LoxBerry::Web::DEBUG 		= 1;
+	$LoxBerry::Storage::DEBUG	= 1;
 	$LoxBerry::Log::DEBUG		= 1;
-}
-
-##########################################################################
-# Template preparation
-##########################################################################
-
-# preparing error template;
-my $errortemplate = HTML::Template->new(
-					filename => $lbptemplatedir . "/" . $errortemplatefilename,
-					global_vars => 1,
-					loop_context_vars => 1,
-					die_on_bad_params=> 0,
-					associate => $cgi,
-					%htmltemplate_options,
-					debug => 1,
-					);
-my %ERR = LoxBerry::System::readlanguage($errortemplate, $languagefile);
-
-# übergibt Log Verzeichnis und Dateiname an HTML
-#$template->param("LOGFILE" , $lbplogdir . "/" . $pluginlogfile);
-
-##########################################################################
-# Check Config file
-##########################################################################
-
-if (!-r $lbpconfigdir . "/" . $pluginconfigfile) 
-{
-	LOGCRIT "Plugin config file does not exist";
-	$error_message = $ERR{'ERRORS.ERR_CHECK_CONFIG_FILE'};
-	&error; 
-} else {
-	LOGDEB "The Plugin config file has been loaded";
+	$LoxBerry::IO::DEBUG		= 1;
 }
 
 
 ##########################################################################
-# Check App Config file dir
+# Language Settings
 ##########################################################################
 
-if (!-d $lbphtmlauthdir . "/files") 
-{	
-	mkdir $lbphtmlauthdir . "/files";
-	mkdir $lbphtmlauthdir . "/files/user_app";
-	mkdir $lbphtmlauthdir . "/files/user_photo";
-	LOGOK "App config file and photo directory created";
-} else {
-	LOGDEB "App config file and photo directory already there";
-}
-
-##########################################################################
-# Check if MQTT Plugin is installed
-##########################################################################
-
-my $mqtt = $lbhomedir . "/config/plugins/mqttgateway/mqtt.json";
-if (!-r $mqtt) 
-{
-	LOGCRIT "It seems that MQTT Plugin is not installed";
-	$error_message = $ERR{'ERRORS.ERR_CHECK_MQTT_PLUGIN'};
-	&error; 
-} else {
-	LOGINF "MQTT Plugin is installed";
-}
-
-
-##########################################################################
-# Initiate Main Template
-##########################################################################
-inittemplate();
-
-
-##########################################################################
-# Some Settings
-##########################################################################
-
-$template->param("LBADR", lbhostname().":".lbwebserverport());
-#$template->param("LBADR", $myip.":".lbwebserverport());
-$template->param("PLUGINDIR" => $lbpplugindir);
+$template->param("LBHOSTNAME", lbhostname());
+$template->param("LBLANG", $lblang);
+$template->param("SELFURL", $ENV{REQUEST_URI});
 
 LOGDEB "Read main settings from " . $languagefile . " for language: " . $lblang;
 
+#************************************************************************
+
+# übergibt Plugin Verzeichnis an HTML
+$template->param("PLUGINDIR" => $lbpplugindir);
+
+# übergibt Log Verzeichnis und Dateiname an HTML
+$template->param("LOGFILE" , $lbplogdir . "/" . $pluginlogfile);
 
 ##########################################################################
-# check if weather4lox is installed and parse data
+# check if config files exist and they are readable
 ##########################################################################
 
-# Check if weather4lox.cfg file exist and parse in
-if ($pcfg->param("LOCATION.longitude") eq '' or $pcfg->param("LOCATION.latitude") eq '')  
+# Check if sonos.cfg file exist
+if (!-r $lbpconfigdir . "/" . $pluginconfigfile) 
 {
-	if (-r $lbhomedir . "/config/plugins/weather4lox/weather4lox.cfg") 
-	{
-		my $wcfg = new Config::Simple($lbhomedir . "/config/plugins/weather4lox/weather4lox.cfg");
-		LOGDEB "Weather4lox Plugin has been detected and config file has been loaded";
-		# import longitude
-		if (!$wcfg->param("DARKSKY.COORDLONG") eq "")   {
-			$pcfg->param("LOCATION.longitude", $wcfg->param("DARKSKY.COORDLONG"));
-			LOGDEB "Longitude has been passed over from weather4lox Darksky settings";
-		} elsif (!$wcfg->param("WEATHERBIT.COORDLONG") eq "")   {
-			$pcfg->param("LOCATION.longitude", $wcfg->param("WEATHERBIT.COORDLONG"));
-			LOGDEB "Longitude has been passed over from weather4lox Weatherbit settings";
-		} elsif (!$wcfg->param("WUNDERGROUND.COORDLONG") eq "")   {
-			$pcfg->param("LOCATION.longitude", $wcfg->param("WUNDERGROUND.COORDLONG"));
-			LOGDEB "Longitude has been passed over from weather4lox Wunderground settings";
-		}
-		# import latitude
-		if (!$wcfg->param("DARKSKY.COORDLAT") eq "")   {
-			$pcfg->param("LOCATION.latitude", $wcfg->param("DARKSKY.COORDLAT"));
-			LOGDEB "Latitude has been passed over from weather4lox Darksky settings";
-		} elsif (!$wcfg->param("WEATHERBIT.COORDLAT") eq "")   {
-			$pcfg->param("LOCATION.latitude", $wcfg->param("WEATHERBIT.COORDLAT"));
-			LOGDEB "Latitude has been passed over from weather4lox Weatherbit settings";
-		} elsif (!$wcfg->param("WUNDERGROUND.COORDLAT") eq "")   {
-			$pcfg->param("LOCATION.latitude", $wcfg->param("WUNDERGROUND.COORDLAT"));
-			LOGDEB "Latitude has been passed over from weather4lox Wunderground settings";
-		}
-		$template->param("locationdata" => 1);
-		$pcfg->param("LOCATION.locationdata" => 1);
-		$pcfg->save() or &error;
-		LOGDEB "Data from weather4lox has been saved";
-	} else {
-		LOGDEB "No Geo location data found on your LoxBerry";
-	}
-	
+	LOGCRIT "Plugin config file does not exist";
+	$error_message = $SL{'ERRORS.ERR_CHECK_SONOS_CONFIG_FILE'};
+	notify($lbpplugindir, "Sonos UI ", "Error loading Sonos configuration file. Please try again or check config folder!", 1);
+	&error; 
 } else {
-	$template->param("locationdata" => 1);
-	LOGDEB "Location data used from Plugin config";
+	LOGDEB "The Sonos config file has been loaded";
 }
+
+# Check if player.cfg file exist
+if (!-r $lbpconfigdir . "/" . $pluginplayerfile)
+{
+	LOGCRIT "Plugin config file does not exist";
+	$error_message = $SL{'ERRORS.ERR_CHECK_PLAYER_CONFIG_FILE'};
+	notify($lbpplugindir, "Sonos UI ", "Error loading Sonos Player configuration file. Please try again or check config folder!", 1);
+	&error; 
+} else {
+	LOGDEB "The Player config file has been loaded";
+}
+
+# Check if mqtt.json file exist
+#if (!-r $lbhomedir.'/config/plugins/mqttgateway/mqtt.json')
+#{
+#	LOGDEB "MQTT config file does not exist";
+
+#} else {
+#	LOGDEB "The MQTT config file has been loaded";
+#	my $cfgfile = $lbhomedir.'/config/plugins/mqttgateway/mqtt.json';
+#	my $jsonobj = LoxBerry::JSON->new();
+#	$cfgm = $jsonobj->open(filename => $cfgfile);
+#}
+
+LOGDEB "Loxberry Version: " . $lbversion;
+$lbv = substr($lbversion,0,1);
 
 
 ##########################################################################
 # Main program
 ##########################################################################
 
-	# get MQTT Credentials
-	my $credfile = "$lbhomedir/config/plugins/mqttgateway/cred.json";
-	my $jsonobj = LoxBerry::JSON->new();
-	my $mqttcfg = $jsonobj->open(filename => $credfile);
 
-	$mqtt_account = $mqttcfg->{Credentials}{brokeruser};
-	$mqtt_pass = $mqttcfg->{Credentials}{brokerpass};
-	LOGDEB "MQTT credentials obtained";
-	
-	# get MQTT Config
-	my $configfile = "$lbhomedir/config/plugins/mqttgateway/mqtt.json";
-	my $jsonobj1 = LoxBerry::JSON->new();
-	my $mqttpcfg = $jsonobj1->open(filename => $configfile);
+#our %navbar;
+$navbar{1}{Name} = "$SL{'BASIS.MENU_SETTINGS'}";
+$navbar{1}{URL} = './index.cgi';
+$navbar{2}{Name} = "$SL{'BASIS.MENU_OPTIONS'}";
+$navbar{2}{URL} = './index.cgi?do=details';
+$navbar{99}{Name} = "$SL{'BASIS.MENU_LOGFILES'}";
+$navbar{99}{URL} = './index.cgi?do=logfiles';
 
-	$mqtt_host = $mqttpcfg->{Main}{brokeraddress};
-	LOGDEB "MQTT hostname obtained";
-	
-	# Navbar
-	$navbar{10}{Name} = "$SL{'BASIC.NAVBAR_FIRST'}";
-	$navbar{10}{URL} = './index.cgi';
-
-	if ($pcfg->param("LOCATION.longitude") eq '' or $pcfg->param("LOCATION.latitude") eq '')  
-	{
-		$navbar{20}{Name} = "$SL{'BASIC.NAVBAR_SECOND'}";
-		$navbar{20}{URL} = 'https://www.google.com/maps';
-		$navbar{20}{target} = '_blank';
+# if MQTT credentials are valid and Communication turned ON --> insert navbar
+if ($mqttcred and $pcfg->param("LOXONE.LoxDaten") eq "true")  {
+	$navbar{3}{Name} = "$SL{'BASIS.MENU_MQTT'}";
+	#$navbar{3}{URL} = 'http://'.$lbip.":".lbwebserverport().'/admin/plugins/mqttgateway/index.cgi';
+	if($lbv < 3)  {
+		$navbar{3}{URL} = '/admin/plugins/mqttgateway/index.cgi';
+	} else {
+		$navbar{3}{URL} = '/admin/system/mqtt.cgi';
 	}
-
-	$navbar{30}{Name} = "$SL{'BASIC.NAVBAR_THIRD'}";
-	$navbar{30}{URL} = './index.cgi?do=command';
-
-	my $track = $pcfg->param("CONNECTION.track");
-	if (is_enabled($track))  {
-		$navbar{40}{Name} = "$SL{'BASIC.NAVBAR_FOURTH'}";
-		$navbar{40}{URL} = 'http://'.$myip.':'.$recorderhttpport;
-		$navbar{40}{target} = '_blank';
-	}
-
-	if (-r $mqtt) 
-	{
-		$navbar{50}{Name} = "$SL{'BASIC.NAVBAR_SIXTH'}";
-		$navbar{50}{URL} = 'http://'.$ip.":".lbwebserverport().'/admin/plugins/mqttgateway/index.cgi';
-		$navbar{50}{target} = '_blank';
-	}
-
-	$navbar{90}{Name} = "$SL{'BASIC.NAVBAR_FIVETH'}";
-	$navbar{90}{URL} = './index.cgi?do=logfiles';
-	
-
-if ($R::saveformdata) {
-	&save;
+	$navbar{3}{target} = '_blank';
 }
 
-if(!defined $do or $do eq "form") {
-	$navbar{10}{active} = 1;
-	$template->param("FORM", "1");
+if ($R::saveformdata1) {
+	$template->param( FORMNO => 'form' );
+	&save;
+}
+if ($R::saveformdata2) {
+	$template->param( FORMNO => 'details' );
+	&save_details;
+}
+
+# check if config already saved, if not highlight header text in RED
+my $playercfg = new Config::Simple($lbpconfigdir . "/" . $pluginplayerfile);
+my $countplayer;
+	my %configzones = $playercfg->vars();	
+	our $filename;
+	foreach my $key (keys %configzones) {
+		$countplayer++;
+	}
+	if ( $countplayer < 1 ) {
+		$countplayer = 0;
+	} else {
+		$countplayer = 1;
+	}
+	$template->param("PLAYERAVAILABLE", $countplayer);
+	
+
+if(!defined $R::do or $R::do eq "form") {
+	$navbar{1}{active} = 1;
+	$template->param("SETTINGS", "1");
 	&form;
-} elsif ($do eq "tracking") {
-	$navbar{40}{active} = 1;
-	$template->param("TRACKING", "1");
-	printtemplate();
-} elsif ($do eq "command") {
-	$navbar{30}{active} = 1;
-	$template->param("COMMAND", "1");
-	&topics_form;
-	#printtemplate();
-} elsif ($do eq "logfiles") {
+} elsif($R::do eq "details") {
+	$navbar{2}{active} = 1;
+	$template->param("DETAILS", "1");
+	&form;
+} elsif ($R::do eq "logfiles") {
 	LOGTITLE "Show logfiles";
-	$navbar{90}{active} = 1;
+	$navbar{99}{active} = 1;
 	$template->param("LOGFILES", "1");
 	$template->param("LOGLIST_HTML", LoxBerry::Web::loglist_html());
 	printtemplate();
-}
-$error_message = "Invalid do parameter: ".$do;
+} elsif ($R::do eq "scan") {
+	&attention_scan;
+} elsif ($R::do eq "scanning") {
+	LOGTITLE "Execute Scan";
+	&scan;
+	$template->param("SETTINGS", "1");
+	&form;
+} 
+
+$error_message = "Invalid do parameter: ".$R::do;
 &error;
 exit;
 
@@ -362,59 +369,286 @@ exit;
 #####################################################
 
 sub form 
-{	
-	# User einlesen
-	our $countuser = 0;
-	our $rowsuser;
+{
+	$template->param( FORMNO => 'FORM' );
 	
-	my %userconfig = $pcfg->vars();	
-	foreach my $key (keys %userconfig) {
-		if ( $key =~ /^USER/ ) {
-			$countuser++;
+	# check if path exist (upgrade from v3.5.1)
+	if ($pcfg->param("SYSTEM.path") eq "")   {
+		$pcfg->param("SYSTEM.path", "$lbpdatadir");
+		$pcfg->save() or &error;
+		LOGINF("default path has been added to config");
+	}
+		
+	my $storage = LoxBerry::Storage::get_storage_html(
+					formid => 'STORAGEPATH', 
+					currentpath => $pcfg->param("SYSTEM.path"),
+					custom_folder => 1,
+					type_all => 1, 
+					readwriteonly => 1, 
+					data_mini => 1,
+					label => "$SL{'T2S.SAFE_DETAILS'}");
+					
+	$template->param("STORAGEPATH", $storage);
+	
+	if ($mqttcred && $pcfg->param("LOXONE.LoxDatenMQTT") eq "true")  {
+		$pcfg->param("LOXONE.LoxPort", $cfgm->{Main}{udpport});
+	}
+
+	# read info file from Github and save in $info
+	my $info 		= get($urlfile);
+	$template		->param("INFO" 			=> "$info");
+	
+	if ($pcfg->param("SYSTEM.path") eq "")   {
+		$pcfg->param("SYSTEM.path", "$lbpdatadir");
+		$pcfg->save() or &error;
+	}
+			
+	# fill saved values into form
+	$template		->param("SELFURL", $SL{REQUEST_URI});
+	$template		->param("T2S_ENGINE" 	=> $pcfg->param("TTS.t2s_engine"));
+	$template		->param("VOICE" 		=> $pcfg->param("TTS.voice"));
+	$template		->param("CODE" 			=> $pcfg->param("TTS.messageLang"));
+	$template		->param("DATADIR" 		=> $pcfg->param("SYSTEM.path"));
+	$template		->param("LOX_ON" 		=> $pcfg->param("LOXONE.LoxDaten"));
+		
+	# Load saved values for "select"
+	my $t2s_engine		  = $pcfg->param("TTS.t2s_engine");
+	my $rmpvol	 	  	  = $pcfg->param("TTS.volrampto");
+	my $storepath 		  = $pcfg->param("SYSTEM.path"),
+	
+	# *******************************************************************************************************************
+	# Radiosender einlesen
+	
+	our $countradios = 0;
+	our $rowsradios;
+	
+	my %radioconfig = $pcfg->vars();	
+	foreach my $key (keys %radioconfig) {
+		if ( $key =~ /^RADIO/ ) {
+			$countradios++;
 			my @fields = $pcfg->param($key);
-			$rowsuser .= "<tr><td style='width: 4%;'><INPUT type='checkbox' style='width: 100%' name='chkuser$countuser' id='chkuser$countuser' align='left'/></td>\n";
-			$rowsuser .= "<td style='width: 22%'><input id='username$countuser' name='username$countuser' type='text' class='uname' placeholder='$SL{'MENU.USER_LISTING'}' value='$fields[0]' align='left' data-validation-error-msg='$SL{'VALIDATION.USER_NAME'}' data-validation-rule='^([äöüÖÜßÄ A-Za-z0-9\ ]){1,20}' style='width: 100%;'></td>\n";
-			$rowsuser .= "<td style='width: 4%'><input name='create$countuser' id='create$countuser' class='createconfbutton' type='button' data-role='button' data-inline='true' data-mini='true' onclick='' data-icon='check' value='$SL{'BUTTON.NEW_CONFIG'}'></td>\n";
-			
-			my $filecheck = "/var/spool/owntracks/recorder/store/last/loxberry/".lc($fields[0])."/loxberry-".lc($fields[0]).".json";
-			my $filecreationcheck = "$lbphtmlauthdir/files/user_app/$fields[0].otrc";
-						
-			# check if actual data been recieved
-			if (-r $filecheck) {
-				$rowsuser .= "<td style='width: 2%'><img class='picture' src='/plugins/$lbpplugindir/images/green.png' id='tra$countuser' name='tra$countuser'></td>\n";
-				$rowsuser .= "<td style='width: 80%'><div id='response$countuser'></div></td>\n";
-				next;
-			} 
-			# check if App config file exists
-			if (!-r $filecreationcheck) {
-				$rowsuser .= "<td style='width: 2%'><img class='picture' src='/plugins/$lbpplugindir/images/red.png' id='tra$countuser' name='tra$countuser'></td>\n";
-			} else {
-				$rowsuser .= "<td style='width: 2%'><img class='picture' src='/plugins/$lbpplugindir/images/yellow.png' id='tra$countuser' name='tra$countuser'></td>\n";
-			}
-			
-			$rowsuser .= "<td style='width: 80%'><div id='response$countuser'></div></td>\n";
+			$rowsradios .= "<tr><td style='height: 25px; width: 43px;' class='auto-style1'><INPUT type='checkbox' style='width: 20px' name='chkradios$countradios' id='chkradios$countradios' align='center'/></td>\n";
+			$rowsradios .= "<td style='height: 28px'><input type='text' id='radioname$countradios' name='radioname$countradios' size='20' value='$fields[0]' /> </td>\n";
+			$rowsradios .= "<td style='width: 600px; height: 28px'><input type='text' id='radiourl$countradios' name='radiourl$countradios' size='100' value='$fields[1]' style='width: 100%' /> </td>\n";
+			$rowsradios .= "<td style='width: 600px; height: 28px'><input type='text' id='coverurl$countradios' name='coverurl$countradios' size='100' value='$fields[2]' style='width: 100%' /> </td></tr>\n";
 		}
 	}
 
-	if ( $countuser < 1 ) {
-		$rowsuser .= "<tr><td colspan=3>" . $SL{'VALIDATION.USER_EMPTY'} . "</td></tr>\n";
+	if ( $countradios < 1 ) {
+		$rowsradios .= "<tr><td colspan=4>" . $SL{'RADIO.SONOS_EMPTY_RADIO'} . "</td></tr>\n";
 	}
-	LOGDEB "$countuser User has been loaded.";
-	$rowsuser .= "<input type='hidden' id='countuser' name='countuser' value='$countuser'>\n";
-	$template->param("ROWSUSER", $rowsuser);
+	LOGDEB "$countradios Radio Stations has been loaded.";
+	$rowsradios .= "<input type='hidden' id='countradios' name='countradios' value='$countradios'>\n";
+	$template->param("ROWSRADIO", $rowsradios);
 	
-	# execute check if User(s) need to be migrated
-	migrate_user($countuser);
+	# *******************************************************************************************************************
+	# Player einlesen
 	
-	#$content = $filecheck;
-	#print_test($content);
-	#exit;
+	our $rowssonosplayer;
+	
+	my $error_volume = $SL{'T2S.ERROR_VOLUME_PLAYER'};
+	my $playercfg = new Config::Simple($lbpconfigdir . "/" . $pluginplayerfile);
+	my %configzones = $playercfg->vars();	
+	our $filename;
+	foreach my $key (keys %configzones) {
+		$countplayers++;
+		my $room = $key;
+		$room =~ s/^SONOSZONEN\.//g;
+		$room =~ s/\[\]$//g;
+		my @fields = $playercfg->param($key);
+		$filename = $lbphtmldir.'/images/icon-'.$fields[7].'.png';
+		our $statusfile = $lbpdatadir.'/PlayerStatus/s4lox_on_'.$room.'.txt';
+		$rowssonosplayer .= "<tr><td style='height: 25px; width: 4%;' class='auto-style1'><INPUT type='checkbox' name='chkplayers$countplayers' id='chkplayers$countplayers' align='center'/></td>";
+		if (-e $statusfile) {
+			$rowssonosplayer .= "<td style='height: 28px; width: 16%;'><input type='text' class='pd-price' id='zone$countplayers' name='zone$countplayers' size='40' readonly='true' value='$room' style='width: 100%; background-color: #6dac20;'></td>";
+		} else {
+			$rowssonosplayer .= "<td style='height: 28px; width: 16%;'><input type='text' id='zone$countplayers' name='zone$countplayers' size='40' readonly='true' value='$room' style='width: 100%; background-color: #e6e6e6;'></td>";
+		}	
+		$rowssonosplayer .= "<td style='height: 25px; width: 4%;' class='auto-style1'><div class='chk-group'><INPUT type='checkbox' class='chk-checked' name='mainchk$countplayers' id='mainchk$countplayers' value='$fields[6]' align='center'></div></td>";
+		$rowssonosplayer .= "<td style='height: 28px; width: 15%;'><input type='text' id='model$countplayers' name='model$countplayers' size='30' readonly='true' value='$fields[2]' style='width: 100%; background-color: #e6e6e6;'></td>";
+		if (-e $filename) {
+			$rowssonosplayer .= "<td style='height: 28px; width: 2%;'><img src='/plugins/$lbpplugindir/images/icon-$fields[7].png' border='0' width='50' height='50' align='middle'/></td>\n";
+		} else {
+			$rowssonosplayer .= "<td style='height: 28px; width: 2%;'><img src='/plugins/$lbpplugindir/images/sonos_logo_sm.png' border='0' width='50' height='50' align='middle'/></td>\n";
+		}
+		$rowssonosplayer .= "<td style='height: 28px; width: 15%;'><input type='text' id='ip$countplayers' name='ip$countplayers' size='30' value='$fields[0]' style='width: 100%; background-color: #e6e6e6;'></td>";
+		$rowssonosplayer .= "<td style='width: 10%; height: 28px;'><input type='text' id='t2svol$countplayers' size='100' data-validation-rule='special:number-min-max-value:1:100' data-validation-error-msg='$error_volume' name='t2svol$countplayers' value='$fields[3]'></td>";
+		$rowssonosplayer .= "<td style='width: 10%; height: 28px;'><input type='text' id='sonosvol$countplayers' size='100' data-validation-rule='special:number-min-max-value:1:100' data-validation-error-msg='$error_volume' name='sonosvol$countplayers' value='$fields[4]'></td>";
+		$rowssonosplayer .= "<td style='width: 10%; height: 28px;'><input type='text' id='maxvol$countplayers' size='100' data-validation-rule='special:number-min-max-value:1:100' data-validation-error-msg='$error_volume' name='maxvol$countplayers' value='$fields[5]'></td>";
+		if (exists($fields[11]))   {
+			$rowssonosplayer .= "<td style='width: 10%; height: 28px;'><div class='tvmonitorsecond'><input type='text' id='tvvol$countplayers' size='100' data-validation-rule='special:number-min-max-value:1:100' data-validation-error-msg='$error_volume' name='tvvol$countplayers' value='$fields[12]'></div></td>";
+			$rowssonosplayer .= "<input type='hidden' id='sb$countplayers' name='sb$countplayers' value='$fields[11]'>";
+		} else {
+			$rowssonosplayer .= "</tr>";
+		}
+		$rowssonosplayer .= "<input type='hidden' id='room$countplayers' name='room$countplayers' value=$room>";
+		$rowssonosplayer .= "<input type='hidden' id='models$countplayers' name='models$countplayers' value='$fields[7]'>";
+		$rowssonosplayer .= "<input type='hidden' id='groupId$countplayers' name='groupId$countplayers' value='$fields[8]'>";
+		$rowssonosplayer .= "<input type='hidden' id='householdId$countplayers' name='householdId$countplayers' value='$fields[9]'>";
+		$rowssonosplayer .= "<input type='hidden' id='deviceId$countplayers' name='deviceId$countplayers' value='$fields[10]'>";
+		$rowssonosplayer .= "<input type='hidden' id='rincon$countplayers' name='rincon$countplayers' data-validation-rule='special:number-min-max-value:1:100' data-validation-error-msg='$error_volume' value='$fields[1]'>";
+	}
+	LOGDEB "$countplayers Sonos players has been loaded.";							
+	
+	if ( $countplayers < 1 ) {
+		$rowssonosplayer .= "<tr><td colspan=10>" . $SL{'ZONES.SONOS_EMPTY_ZONES'} . "</td></tr>\n";
+	}
+	$rowssonosplayer .= "<input type='hidden' id='countplayers' name='countplayers' value='$countplayers'>\n";
+	$template->param("ROWSSONOSPLAYER", $rowssonosplayer);
+	
+	# *******************************************************************************************************************
+	# Get Miniserver
+	my $mshtml = LoxBerry::Web::mslist_select_html( 
+							FORMID => 'ms',
+							SELECTED => $pcfg->param('LOXONE.Loxone'),
+							DATA_MINI => 1,
+							LABEL => "",
+							);
+	$template->param('MS', $mshtml);
+		
+	LOGDEB "List of available Miniserver(s) has been successful loaded";
+	# *******************************************************************************************************************
+		
+	# fill dropdown with list of files from tts/mp3 folder
+	my $dir = $lbpdatadir.'/'.$ttsfolder.'/'.$mp3folder.'/';
+	my $mp3_list;
+	
+    opendir(DIR, $dir) or die $!;
+	my @dots 
+        = grep { 
+            /\.mp3$/      # just files ending with .mp3
+	    && -f "$dir/$_"   # and is a file
+	} 
+	readdir(DIR);
+	my @sorted_dots = sort { $a <=> $b } @dots;		# sort files numericly
+    # Loop through the array adding filenames to dropdown
+    foreach my $file (@sorted_dots) {
+		$mp3_list.= "<option value='$file'>" . $file . "</option>\n";
+    }
+	closedir(DIR);
+	$template->param("MP3_LIST", $mp3_list);
+	LOGDEB "List of MP3 files has been successful loaded";
+	
+	# check if MQTT is installed and valid credentials received
+	if ($mqttcred)   {
+		$template->param("MQTT" => "true");
+		LOGDEB "MQTT Gateway is installed and valid credentials received.";
+	} else {
+		$template->param("MQTT" => "false");
+		$pcfg->param("LOXONE.LoxDatenMQTT", "false");
+		$pcfg->save() or &error;
+		LOGDEB "MQTT Gateway is not installed or wrong credentials received.";
+	}
+	
+	LOGOK "Sonos Plugin has been successfully loaded.";
+	
+	# Donation
+	if (is_enabled($pcfg->param("VARIOUS.donate"))) {
+		$template->param("DONATE", 'checked="checked"');
+	} else {
+		$template->param("DONATE", '');
+	}
 	
 	printtemplate();
+	#$content = $filename;
+	#print_test($content);
 	exit;
+	
 }
 
 
+
+#####################################################
+# Save_details-Sub
+#####################################################
+
+sub save_details
+{
+	my $countradios = param('countradios');
+	
+	LOGINF "Start writing details configuration file";
+	
+	$pcfg->param("TTS.volrampto", "$R::rmpvol");
+	$pcfg->param("TTS.rampto", "$R::rampto");
+	$pcfg->param("TTS.correction", "$R::correction");
+	$pcfg->param("TTS.waiting", "$R::waiting");
+	$pcfg->param("MP3.volumedown", "$R::volume");
+	$pcfg->param("MP3.volumeup", "$R::volume");
+	$pcfg->param("VARIOUS.announceradio", "$R::announceradio");
+	$pcfg->param("VARIOUS.announceradio_always", "$R::announceradio_always");
+	$pcfg->param("TTS.phonemute", "$R::phonemute");
+	$pcfg->param("VARIOUS.phonestop", "$R::phonestop");
+	$pcfg->param("VARIOUS.volmax", "$R::volmax");
+	$pcfg->param("LOCATION.town", "\"$R::town\"");
+	$pcfg->param("VARIOUS.CALDavMuell", "\"$R::wastecal\"");
+	$pcfg->param("VARIOUS.CALDav2", "\"$R::cal\"");
+	$pcfg->param("VARIOUS.cron", "$R::cron");
+	$pcfg->param("VARIOUS.selfunction", "$R::func_list");
+	$pcfg->param("SYSTEM.checkt2s", "$R::checkt2s");
+		
+	# save all radiostations
+	for ($i = 1; $i <= $countradios; $i++) {
+		my $rname = param("radioname$i");
+		my $rurl = param("radiourl$i");
+		my $curl = param("coverurl$i");
+		$pcfg->param( "RADIO.radio" . "[$i]", "\"$rname\"" . "," . "\"$rurl\""  . "," . "\"$curl\"" );
+	}
+
+	$pcfg->save() or &error;
+	
+
+	  if ($R::cron eq "1") 
+	  {
+	    system ("ln -s $lbphtmldir/bin/cronjob.sh $lbhomedir/system/cron/cron.01min/$lbpplugindir");
+	    unlink ("$lbhomedir/system/cron/cron.03min/$lbpplugindir");
+		unlink ("$lbhomedir/system/cron/cron.05min/$lbpplugindir");
+	    unlink ("$lbhomedir/system/cron/cron.10min/$lbpplugindir");
+	    unlink ("$lbhomedir/system/cron/cron.30min/$lbpplugindir");
+		LOGOK "Cron job each Minute created";
+	  }
+	  if ($R::cron eq "3") 
+	  {
+	    system ("ln -s $lbphtmldir/bin/cronjob.sh $lbhomedir/system/cron/cron.03min/$lbpplugindir");
+	    unlink ("$lbhomedir/system/cron/cron.01min/$lbpplugindir");
+		unlink ("$lbhomedir/system/cron/cron.05min/$lbpplugindir");
+	    unlink ("$lbhomedir/system/cron/cron.10min/$lbpplugindir");
+	    unlink ("$lbhomedir/system/cron/cron.30min/$lbpplugindir");
+		LOGOK "Cron job 3 Minutes created";
+	  }
+	  if ($R::cron eq "5") 
+	 {
+	    system ("ln -s $lbphtmldir/bin/cronjob.sh $lbhomedir/system/cron/cron.05min/$lbpplugindir");
+	    unlink ("$lbhomedir/system/cron/cron.03min/$lbpplugindir");
+		unlink ("$lbhomedir/system/cron/cron.01min/$lbpplugindir");
+	    unlink ("$lbhomedir/system/cron/cron.10min/$lbpplugindir");
+	    unlink ("$lbhomedir/system/cron/cron.30min/$lbpplugindir");
+		LOGOK "Cron job 5 Minutes created";
+	  }
+	  if ($R::cron eq "10") 
+	  {
+	    system ("ln -s $lbphtmldir/bin/cronjob.sh $lbhomedir/system/cron/cron.10min/$lbpplugindir");
+	    unlink ("$lbhomedir/system/cron/cron.03min/$lbpplugindir");
+		unlink ("$lbhomedir/system/cron/cron.05min/$lbpplugindir");
+	    unlink ("$lbhomedir/system/cron/cron.01min/$lbpplugindir");
+	    unlink ("$lbhomedir/system/cron/cron.30min/$lbpplugindir");
+		LOGOK "Cron job 10 Minutes created";
+	  }
+	  if ($R::cron eq "30") 
+	  {
+	    system ("ln -s $lbphtmldir/bin/cronjob.sh $lbhomedir/system/cron/cron.30min/$lbpplugindir");
+	    unlink ("$lbhomedir/system/cron/cron.03min/$lbpplugindir");
+		unlink ("$lbhomedir/system/cron/cron.05min/$lbpplugindir");
+	    unlink ("$lbhomedir/system/cron/cron.10min/$lbpplugindir");
+	    unlink ("$lbhomedir/system/cron/cron.01min/$lbpplugindir");
+		LOGOK "Cron job 30 Minutes created";
+	  }
+	  
+	
+	my $file = qx(/usr/bin/php $lbphtmldir/bin/create_config.php);		
+	LOGOK "Detail settings has been saved successful";
+	&print_save;
+	exit;
+}
 
 #####################################################
 # Save-Sub
@@ -423,309 +657,239 @@ sub form
 sub save 
 {
 	# Everything from Forms
-	my $i;
-	my $countuser = "$R::countuser";
+	my $countplayers	= param('countplayers');
+	my $countradios 	= param('countradios');
+	my $LoxDaten	 	= param('sendlox');
+	my $selminiserver	= param('ms');
+	
+	# get Miniserver entry from former Versions prior to v3.5.2 (MINISERVER1) and extract last character
+	my $sel_ms = substr($selminiserver, -1, 1);
+	
+	my $cfg         = new Config::Simple("$lbsconfigdir/general.cfg");
+	my $miniservers	= $cfg->param("BASE.MINISERVERS");
+	my $MiniServer	= $cfg->param("MINISERVER$selminiserver.IPADDRESS");
+	my $MSWebPort	= $cfg->param("MINISERVER$selminiserver.PORT");
+	my $MSUser		= $cfg->param("MINISERVER$selminiserver.ADMIN");
+	my $MSPass		= $cfg->param("MINISERVER$selminiserver.PASS");
 			
-	# OK - now installing...
-	LOGINF "Start writing configuration file";
-	
-	my $trackstatus = $R::track;
-	if ($trackstatus eq "true")  {
-		compare_config();
-		if ($count > 1)  {
-			$pcfg->param("RECORDER_HTTP.OTR_BROWSERAPIKEY", "$R::googleapikey");
-			$pcfg->param("RECORDER_MQTT.OTR_USER", "$mqtt_account");
-			$pcfg->param("RECORDER_MQTT.OTR_HOST", "$mqtt_host");
-			$pcfg->param("RECORDER_MQTT.OTR_PASS", "$mqtt_pass");
-			$pcfg->param("CONNECTION.track", "true");
-			$pcfg->save() or &error;
-			recorder_config();
-			LOGOK "Recorder settings saved, recorder restarted";
-		}
+	# turn on/off MS inbound function 
+	if ($LoxDaten eq "true") {
+		LOGDEB "Coummunication to Miniserver is switched on";
 	} else {
-		$pcfg->param("CONNECTION.track", "false");
-		system("sudo systemctl stop ot-recorder");
-		LOGDEB "Recorder stopped";
+		LOGDEB "Coummunication to Miniserver is switched off.";
 	}
 		
-	$pcfg->param("CONNECTION.dyndns", "$R::dyndns");
-	$pcfg->param("CONNECTION.port", "$R::port");
-	# turn on if TLS works
-	#$pcfg->param("CONNECTION.tls", "$R::tls");
-	$pcfg->param("LOCATION.location", "$R::location");
-	$pcfg->param("LOCATION.radius", "$R::radius");
-	$pcfg->param("LOCATION.latitude", "$R::latitude");
-	$pcfg->param("LOCATION.longitude", "$R::longitude");
-	$pcfg->param("RECORDER_HTTP.OTR_HTTPHOST", "$myip");
-	$pcfg->param("RECORDER_HTTP.OTR_HTTPPORT", "$recorderhttpport");
-	
-	# save all user
-	for ($i = 1; $i <= $countuser; $i++) {
-		my $username = quotemeta(param("username$i"));
-		if ( param("chkuser$i") ) { # if radio should be deleted
-			$pcfg->delete("USER$i.name", $username);
-			$pcfg->delete("USER$i");
-			LOGDEB "User: $username deleted";
-		} else { # save
-			$pcfg->param("USER$i.name", $username);
-			LOGDEB "User: $username saved";
+	# OK - now installing...
+
+	# Write configuration file(s)
+	$pcfg->param("LOXONE.Loxone", "$sel_ms");
+	$pcfg->param("LOXONE.LoxDaten", "$R::sendlox");
+	$pcfg->param("LOXONE.LoxDatenMQTT", "$R::sendloxMQTT");
+	if ($R::sendlox eq "true")   {
+		if ($R::sendloxMQTT eq "true")  {
+			$pcfg->param("LOXONE.LoxPort", $cfgm->{Main}{udpport});
+		} else {
+			$pcfg->param("LOXONE.LoxPort", "$R::udpport");
 		}
 	}
-	$pcfg->save() or &error;
-	LOGOK "All settings has been saved";
+	$pcfg->param("TTS.t2s_engine", "$R::t2s_engine");
+	$pcfg->param("TTS.messageLang", "$R::t2slang");
+	$pcfg->param("TTS.API-key", "$R::apikey");
+	$pcfg->param("TTS.secret-key", "$R::seckey");
+	$pcfg->param("TTS.voice", "$R::voice");
+	$pcfg->param("TTS.regionms", $azureregion);
+	$pcfg->param("MP3.MP3store", "$R::mp3store");
+	$pcfg->param("MP3.cachesize", "$R::cachesize");
+	$pcfg->param("MP3.file_gong", "$R::file_gong");
+	$pcfg->param("LOCATION.region", "$R::region");
+	$pcfg->param("LOCATION.googlekey", "$R::googlekey");
+	$pcfg->param("LOCATION.googletown", "$R::googletown");
+	$pcfg->param("LOCATION.googlestreet", "$R::googlestreet");
+	$pcfg->param("VARIOUS.donate", "$R::donate");
+	$pcfg->param("LOCATION.town", "\"$R::town\"");
+	$pcfg->param("VARIOUS.CALDavMuell", "\"$R::wastecal\"");
+	$pcfg->param("VARIOUS.CALDav2", "\"$R::cal\"");
+	$pcfg->param("TTS.t2son", "$R::t2son");
+	$pcfg->param("VARIOUS.tvmon", "$R::tvmon");
+	$pcfg->param("VARIOUS.starttime", "$R::starttime");
+	$pcfg->param("VARIOUS.endtime", "$R::endtime");
+	$pcfg->param("VARIOUS.tvmonspeech", "$R::tvmonspeech");
+	$pcfg->param("VARIOUS.tvmonsurr", "$R::tvmonsurr");
+	$pcfg->param("VARIOUS.tvmonnight", "$R::tvmonnight");
+	$pcfg->param("VARIOUS.fromtime", "$R::fromtime");
+	$pcfg->param("SYSTEM.path", "$R::STORAGEPATH");
+	$pcfg->param("SYSTEM.mp3path", "$R::STORAGEPATH/$ttsfolder/$mp3folder");
+	$pcfg->param("SYSTEM.ttspath", "$R::STORAGEPATH/$ttsfolder");
+	$pcfg->param("SYSTEM.httpinterface", "http://$lbip:$lbport/plugins/$lbpplugindir/interfacedownload");
+	$pcfg->param("SYSTEM.cifsinterface", "//$lbip:$lbport/plugindata/$lbpplugindir/interfacedownload");
 		
-	# SAVE_MESSAGE
-	$template->param("SAVE" => $SL{'BUTTON.SAVE_MESSAGE'});
-	$template->param("FORM", "1");
+	LOGINF "Start writing settings configuration file";
 	
-	&form;
-	#$content = $R::track;
+	# If storage folders does not exist, copy default mp3 files
+	my $copy = 0;
+	if (!-e "$R::STORAGEPATH/$ttsfolder/$mp3folder") {
+		$copy = 1;
+	}
+	
+	#if (!-d "$R::STORAGEPATH/$ttsfolder $lbphtmldir/interfacedownload")  {
+		LOGINF "Creating folders and symlinks";
+		system ("mkdir -p $R::STORAGEPATH/$ttsfolder/$mp3folder");
+		system ("mkdir -p $R::STORAGEPATH/$ttsfolder");
+		system ("rm $lbpdatadir/interfacedownload");
+		system ("rm $lbphtmldir/interfacedownload");
+		system ("ln -s $R::STORAGEPATH/$ttsfolder $lbpdatadir/interfacedownload");
+		system ("ln -s $R::STORAGEPATH/$ttsfolder $lbphtmldir/interfacedownload");
+		LOGOK "All folders and symlinks created successfully.";
+	#} else {
+	#	LOGINF "All folders and symlinks already exist";
+	#}
+
+	if ($copy) {
+		LOGINF "Copy existing mp3 files from $lbpdatadir/$ttsfolder/$mp3folder to $R::STORAGEPATH/$ttsfolder/$mp3folder";
+		system ("cp -r $lbpdatadir/$ttsfolder/$mp3folder/* $R::STORAGEPATH/$ttsfolder/$mp3folder");
+	}
+	
+	# save all radiostations
+	for ($i = 1; $i <= $countradios; $i++) {
+		if ( param("chkradios$i") ) { # if radio should be deleted
+			$pcfg->delete( "RADIO.radio" . "[$i]" );
+		} else { # save
+			my $rname = param("radioname$i");
+			my $rurl = param("radiourl$i");
+			my $curl = param("coverurl$i");
+			#$pcfg->param( "RADIO.radio" . "[$i]", "\"$rname\"" . "," . "\"$rurl\"" );
+			$pcfg->param( "RADIO.radio" . "[$i]", "\"$rname\"" . "," . "\"$rurl\""  . "," . "\"$curl\"" );
+		}
+	}
+	
+	$pcfg->save() or &error;
+	LOGDEB "Radio Stations has been saved.";
+	
+	# check if scan zones has been executed and min. 1 Player been added
+	if ($countplayers < 1)  {
+		$error_message = $SL{'ZONES.ERROR_NO_SCAN'};
+		&error;
+	}
+	
+	# save all Sonos devices
+	my $playercfg = new Config::Simple($lbpconfigdir . "/" . $pluginplayerfile);
+
+	for ($i = 1; $i <= $countplayers; $i++) {
+		if ( param("chkplayers$i") ) { # if player should be deleted
+			$playercfg->delete( "SONOSZONEN." . param("zone$i") . "[]" );
+		} else { # save
+			if (param("sb$i") eq "SB")   {
+				$playercfg->param( "SONOSZONEN." . param("zone$i") . "[]", param("ip$i") . "," . param("rincon$i") . "," . param("model$i") . "," . param("t2svol$i") . "," . param("sonosvol$i") . "," . param("maxvol$i") . "," . param("mainchk$i"). "," . param("models$i") . "," . param("groupId$i") . "," . param("householdId$i"). "," . param("deviceId$i"). ",SB,". param("tvvol$i"));
+			} else  {
+				$playercfg->param( "SONOSZONEN." . param("zone$i") . "[]", param("ip$i") . "," . param("rincon$i") . "," . param("model$i") . "," . param("t2svol$i") . "," . param("sonosvol$i") . "," . param("maxvol$i") . "," . param("mainchk$i"). "," . param("models$i") . "," . param("groupId$i") . "," . param("householdId$i"). "," . param("deviceId$i"));
+		}
+		}
+	}
+	
+	$playercfg->save() or &error; 
+	LOGDEB "Sonos Zones has been saved.";
+	
+	# call to prepare XML Template during saving
+	if ($R::sendlox eq "true") {
+		&prep_XML;
+	}
+	
+	my $file = qx(/usr/bin/php $lbphtmldir/bin/create_config.php);	
+	my $on = qx(/usr/bin/php $lbphtmldir/bin/check_on_state.php);	
+	my $tv = qx(/usr/bin/php $lbphtmldir/bin/tv_monitor_conf.php);	
+	LOGOK "Main settings has been saved successful";
+	
+	#$content = $server_endpoint;
 	#print_test($content);
 	#exit;
-}
-
-
-########################################################################
-# Topics Form 
-########################################################################
-sub topics_form
-{
-	require "$lbhomedir/bin/plugins/mqttgateway/libs/LoxBerry/JSON/JSONIO.pm";
-	require POSIX;
 	
-	my $datafile = "/dev/shm/mqttgateway_topics.json";
-	my $relayjsonobj = LoxBerry::JSON::JSONIO->new();
-	my $relayjson = $relayjsonobj->open(filename => $datafile);
-	my $http_table;
-	my $http_count;
-	my $udp_count;
-	my $udp_table;
-	my $topic;
-	
-		
-	# HTTP
-	$http_count = 0;
-	$http_table .= qq { <table class="topics_table_http" id="http_table" name="http_table" data-filter-reveal="true" data-filter-placeholder="$SL{'VALIDATION.SEARCH'}" data-filter="true"> };
-	$http_table .= qq { <thead> };
-	$http_table .= qq { <tr> };
-	$http_table .= qq { <th>Miniserver Virtual Input</th> };
-	$http_table .= qq { <th>Last value</th> };
-	$http_table .= qq { <th>Last submission</th> };
-	$http_table .= qq { </tr> };
-	$http_table .= qq { </thead> };
-	$http_table .= qq { <tbody> };
-	
-	foreach $topic (sort keys %{$relayjson->{http}}) {
-		$http_count++;
-		$http_table .= qq { <tr> };
-		$http_table .= qq { <td><font color="blue">$topic</font></td> };
-		$http_table .= qq { <td>$relayjson->{http}{$topic}{message}</td> };
-		$http_table .= qq { <td> } . POSIX::strftime('%d.%m.%Y %H:%M:%S', localtime($relayjson->{http}{$topic}{timestamp})) . qq { </td> };
-		$http_table .= qq { </tr> };
-	}
-	$http_table .= qq { </tbody> };
-	$http_table .= qq { </table> };
-	
-	$template->param("http_table", $http_table);
-	#$template->param("http_count", $http_count);
-	
-	
-	# UDP
-	$udp_count = 0;
-	$udp_table .= qq { <table class="topics_table_udp" id="udp_table" name="udp_table" data-filter-reveal="true" data-filter-placeholder="$SL{'VALIDATION.SEARCH'}" data-filter="true"> };
-	$udp_table .= qq { <thead> };
-	$udp_table .= qq { <tr> };
-	$udp_table .= qq { <th>Miniserver UDP</th> };
-	$udp_table .= qq { <th>Last value</th> };
-	$udp_table .= qq { <th>Last submission</th> };
-	$udp_table .= qq { </tr> };
-	$udp_table .= qq { </thead> };
-	$udp_table .= qq { <tbody> };
-	
-	foreach $topic (sort keys %{$relayjson->{udp}}) {
-		$udp_count++;
-		$udp_table .= qq { <tr> };
-		$udp_table .= qq { <td><font color="blue">$topic=$relayjson->{udp}{$topic}{message}</font></td> };
-		$udp_table .= qq { <td>$relayjson->{udp}{$topic}{message}</td> };
-		$udp_table .= qq { <td> } . POSIX::strftime('%d.%m.%Y %H:%M:%S', localtime($relayjson->{udp}{$topic}{timestamp})) . qq { </td> };
-		$udp_table .= qq { </tr> };
-	}
-	$udp_table .= qq { </tbody> };
-	$udp_table .= qq { </table> };
-	
-	$template->param("udp_table", $udp_table);
-	#$template->param("udp_count", $udp_count);
-	
-	printtemplate();
+	&print_save;
 	exit;
 	
 }
 
 
-##########################################################################
-# Sub Update MQTT
-##########################################################################
 
-sub update_mqtt
+#####################################################
+# Scan Sonos Player - Sub
+#####################################################
+
+sub scan
 {
-	# get MQTT Config
-	my $configfile = "$lbhomedir/config/plugins/mqttgateway/mqtt.json";
-	my $jsonobj1 = LoxBerry::JSON->new();
-	my $mqttpcfg = $jsonobj1->open(filename => $configfile);
-
-	#$mqtt_conv = $mqttpcfg->{Main}{conversions};
-	#$mqtt_subs = $mqttpcfg->{Main}{subscriptions};
+	#$countplayers = 0;
+	my $error_volume = $SL{'T2S.ERROR_VOLUME_PLAYER'};
 	
-}
-
-#####################################################
-# Sub compare_config
-#####################################################
-
-sub compare_config 
-{	
-	$count = 1;
+	LOGINF "Scan for Sonos Zones has been executed.";
 	
-	# compare config in order to check if recorder require updates
-	$mqtt_account = $mqttcfg->{Credentials}{brokeruser};
-	$mqtt_pass = $mqttcfg->{Credentials}{brokerpass};
-	$mqtt_host = $mqttpcfg->{Main}{brokeraddress};
-	my $saved_track = $pcfg->param("CONNECTION.track");
-	my $saved_mqtt_user = $pcfg->param("RECORDER_MQTT.OTR_USER");
-	my $saved_mqtt_pass = $pcfg->param("RECORDER_MQTT.OTR_PASS");
-	my $saved_mqtt_host = $pcfg->param("RECORDER_MQTT.OTR_HOST");
-	my $saved_mqtt_api = $pcfg->param("RECORDER_HTTP.OTR_BROWSERAPIKEY");
+	# executes PHP network.php script (reads player.cfg and add new zones if been added)
+	my $response = qx(/usr/bin/php $lbphtmldir/system/$scanzonesfile);
+			
+	if ($response eq "[]") {
+		LOGINF "No new Players has been added to Plugin.";
+		return($countplayers);
+	} elsif ($response eq "")  {
+		$error_message = $SL{'ERRORS.ERR_SCAN'};
+		&error;
+	} else {
+		LOGOK "JSON data from application has been succesfully received.";
+		my $config = decode_json($response);
 	
-	if (($mqtt_account ne $saved_mqtt_user))  {
-		$count++;
-	}
-	if ($mqtt_pass ne $saved_mqtt_pass)  {
-		$count++;
-	}
-	if ($mqtt_host ne $saved_mqtt_host)  {
-		$count++;
-	}
-	if ($R::googleapikey ne $saved_mqtt_api)  {
-		$count++;
-	}
-	if ($R::track ne $saved_track)  {
-		$count++;
-	}
-}
-
-
-#####################################################
-# Sub Recorder Configuration
-#####################################################
-
-sub recorder_config 
-{
-	my $file = $lbpdatadir."/ot-recorder.txt";
-
-	# Use the open() function to create the file.
-	unless(open FILE, '>'.$file) {
-		# Die with error message 
-		# if we can't open it.
-		LOGCRIT "\nUnable to create $file\n";
-	}
-
-	# Write some text to the file.
-	print FILE "OTR_STORAGEDIR=\"/var/spool/owntracks/recorder/store\"\n";
-	print FILE "OTR_HOST=\"$mqtt_host\"\n";
-	print FILE "OTR_PORT=\"1883\"\n";
-	print FILE "OTR_USER=\"$mqtt_account\"\n";
-	print FILE "OTR_PASS=\"$mqtt_pass\"\n";
-	print FILE "OTR_HTTPHOST=\"$myip\"\n";
-	print FILE "OTR_HTTPPORT=\"$recorderhttpport\"\n";
-	#print FILE "OTR_HTTPLOGDIR=\n";
-	print FILE "OTR_BROWSERAPIKEY=\"$R::googleapikey\"\n";
-	print FILE "OTR_TOPICS=\"owntracks/# owntracks/+/+\"\n";
-
-	# close the file.
-	close FILE;
-	
-	# copy newly created file to destination
-	my $savefile = $lbpconfigdir."/ot-recorder";
-	my $finalfile = "/etc/default/ot-recorder";
-	rename $file, $lbpconfigdir."/ot-recorder";
-	copy $savefile, $finalfile;
-	`cd $lbpbindir ; $lbpbindir/restart.sh > /dev/null 2>&1 &`;
-	#system("/bin/sh $lbpbindir/restart.sh");
-	unlink $lbpconfigdir."/ot-recorder";
-	return;
-}
-
-
-######################################################################
-# AJAX functions
-######################################################################
-
-sub pids 
-{
-	$pids{'recorder'} = (split(" ",`ps -A | grep \"ot-recorder\"`))[0];
-	$pids{'mqttgateway'} = trim(`pgrep mqttgateway.pl`) ;
-	$pids{'mosquitto'} = trim(`pgrep mosquitto`) ;
-	LOGDEB "PIDs updated";
-}	
-
-sub ajax_header
-{
-	print $cgi->header(
-			-type => 'application/json',
-			-charset => 'utf-8',
-			-status => '200 OK',
-	);	
-	LOGOK "AJAX posting received and processed";
-}	
-
-
-
-
-#####################################################
-# Form-Tracking (old)
-#####################################################
-
-sub tracking 
-{
-	topics_form();
-	printtemplate();
-	exit;
-}
-
-
-#####################################################
-# Sub migrate User accounts
-#####################################################
-
-sub migrate_user($countuser)
-{	
-	if ($pcfg->param("CONNECTION.migration") ne "completed")  {
-		if (!-d $lbphtmlauthdir."/files/user_app") {
-			mkdir($lbphtmlauthdir."/files/user_app");
-			LOGDEB "Migration: Directory '$lbphtmlauthdir/files/user_app' has been created";
+		# create table of Sonos devices
+		foreach my $key (keys %{$config})
+		{
+			my $filename = $lbphtmldir.'/images/icon-'.$config->{$key}->[7].'.png';
+				
+			$countplayers++;
+			$rowssonosplayer .= "<tr><td style='height: 25px; width: 4%;' class='auto-style1'><INPUT type='checkbox' style='width: 20px' name='chkplayers$countplayers' id='chkplayers$countplayers' align='center'/></td>\n";
+			$rowssonosplayer .= "<td style='height: 28px; width: 16%;'><input type='text' id='zone$countplayers' name='zone$countplayers' size='40' readonly='true' value='$key' style='width: 100%; background-color: #e6e6e6;' /> </td>\n";
+			$rowssonosplayer .= "<td style='height: 25px; width: 4%;' class='auto-style1'><DIV class='chk-group'><INPUT type='checkbox' class='chk-checked' name='mainchk$countplayers' id='mainchk$countplayers' value='$config->{$key}->[6]' align='center'/></DIV></td>\n";
+			$rowssonosplayer .= "<td style='height: 28px; width: 15%;'><input type='text' id='model$countplayers' name='model$countplayers' size='30' readonly='true' value='$config->{$key}->[2]' style='width: 100%; background-color: #e6e6e6;' /> </td>\n";
+			if (-e $filename) {
+				$rowssonosplayer .= "<td style='height: 28px; width: 2%;'><img src='/plugins/$lbpplugindir/images/icon-$config->{$key}->[7].png' border='0' width='50' height='50' align='middle'/> </td>\n";
+			} else {
+				$rowssonosplayer .= "<td style='height: 28px; width: 2%;'><img src='/plugins/$lbpplugindir/images/sonos_logo_sm.png' border='0' width='50' height='50' align='middle'/> </td>\n";
+			}
+			$rowssonosplayer .= "<td style='height: 28px; width: 15%;'><input type='text' id='ip$countplayers' name='ip$countplayers' size='30' value='$config->{$key}->[0]' style='width: 100%; background-color: #e6e6e6;' /> </td>\n";
+			$rowssonosplayer .= "<td style='width: 10%; height: 28px;'><input type='text' id='t2svol$countplayers' size='100' data-validation-rule='special:number-min-max-value:1:100' data-validation-error-msg='$error_volume' name='t2svol$countplayers' value='$config->{$key}->[3]'' /> </td>\n";
+			$rowssonosplayer .= "<td style='width: 10%; height: 28px;'><input type='text' id='sonosvol$countplayers' size='100' data-validation-rule='special:number-min-max-value:1:100' data-validation-error-msg='$error_volume' name='sonosvol$countplayers' value='$config->{$key}->[4]'' /> </td>\n";
+			$rowssonosplayer .= "<td style='width: 10%; height: 28px;'><input type='text' id='maxvol$countplayers' size='100' data-validation-rule='special:number-min-max-value:1:100' data-validation-error-msg='$error_volume' name='maxvol$countplayers' value='$config->{$key}->[5]'' /> </td>\n";
+			if ($config->{$key}->[11])   {
+				$rowssonosplayer .= "<input type='hidden' id='sb$countplayers' size='100' name='sb$countplayers' data-validation-rule='special:number-min-max-value:1:100' data-validation-error-msg='$error_volume' value='$config->{$key}->[11]'>\n";
+				$rowssonosplayer .= "<td style='width: 10%; height: 28px;'><input type='text' id='tvvol$countplayers' size='100' name='tvvol$countplayers' value='$config->{$key}->[12]'' /> </td> </tr>\n";
+			}
+			$rowssonosplayer .= "<input type='hidden' id='models$countplayers' name='models$countplayers' value='$config->{$key}->[7]'>\n";
+			$rowssonosplayer .= "<input type='hidden' id='groupId$countplayers' name='groupId$countplayers' value='$config->{$key}->[8]'>\n";
+			$rowssonosplayer .= "<input type='hidden' id='householdId$countplayers' name='householdId$countplayers' value='$config->{$key}->[9]'>\n";
+			$rowssonosplayer .= "<input type='hidden' id='deviceId$countplayers' name='deviceId$countplayers' value='$config->{$key}->[10]'>\n";
+			$rowssonosplayer .= "<input type='hidden' id='rincon$countplayers' name='rincon$countplayers' value='$config->{$key}->[1]'>\n";
 		}
-		# Migrate
-		for ($i = 1; $i <= $countuser; $i++) {
-			our $old_user = $pcfg->param("USER.name$i");
-			$pcfg->param("USER$i.name", $old_user);
-			LOGDEB "Migration: USER.name$i=$old_user has been migrated to USER$i.name=$old_user";
-		}
-		# delete
-		for ($i = 1; $i <= $countuser; $i++) {
-			our $del_old = $pcfg->param("USER.name$i");
-			$pcfg->delete("USER.name$i");
-			LOGDEB "Deletion: USER.name$i=$del_old has been deleted";
-			$pcfg->delete( "USER" );
-		}
-		$pcfg->param("CONNECTION.migration", "completed");	
-		$pcfg->save() or &error;
-		LOGDEB "Migration saved and completed";
-		# move files
-		LOGDEB "Move of files has been called";
-		my $filemove = qx(/usr/bin/php $lbphtmldir/migration_app_files.php);
-		LOGDEB "All files has been moved";
+		$template->param("ROWSSONOSPLAYER", $rowssonosplayer);
+		LOGOK "New Players has been added to Plugin.";
+		return($countplayers);
 	}
 }
+
+
+
+
+#####################################################
+# execute PHP script ot generate XML Template - Sub
+#####################################################
+ 
+ sub prep_XML
+{
+	# executes PHP script and saves XML Template local
+	my $udp_temp = qx(/usr/bin/php $lbphtmldir/system/$udp_file);
+	
+	#if (!-r $lbphtmldir . "/system/" . $XML_file) 
+	#{
+	#	LOGWARN "File '".$XML_file."' has not been generated and could not be downloaded. Please check log file";
+	#	return();
+	#}
+	LOGOK "XML Template files generation has been called";
+	return();
+}
+ 
 
 	
 #####################################################
@@ -733,17 +897,47 @@ sub migrate_user($countuser)
 #####################################################
 
 sub error 
-{	
-	$template_title = $ERR{'BASIC.MAIN_TITLE'} . ": v$sversion - " . $ERR{'BUTTON.ERR_TITLE'};
+{
+	$template->param("ERROR", "1");
+	$template_title = $SL{'ERRORS.MY_NAME'} . ": v$sversion - " . $SL{'ERRORS.ERR_TITLE'};
 	LoxBerry::Web::lbheader($template_title, $helplink, $helptemplatefilename);
-	$errortemplate->param('ERR_MESSAGE'		, $error_message);
-	$errortemplate->param('ERR_TITLE'		, $ERR{'BUTTON.ERR_TITLE'});
-	$errortemplate->param('ERR_BUTTON_BACK' , $ERR{'BUTTON.ERR_BUTTON_BACK'});
-	$errortemplate->param('ERR_NEXTURL'	, $ENV{REQUEST_URI});
-	print $errortemplate->output();
+	$template->param('ERR_MESSAGE', $error_message);
+	print $template->output();
 	LoxBerry::Web::lbfooter();
 	exit;
 }
+
+
+#####################################################
+# Save
+#####################################################
+
+sub print_save
+{
+	$template->param("SAVE", "1");
+	$template_title = "$SL{'BASIS.MAIN_TITLE'}: v$sversion";
+	LoxBerry::Web::lbheader($template_title, $helplink, $helptemplatefilename);
+	print $template->output();
+	LoxBerry::Web::lbfooter();
+	exit;
+}
+
+
+#####################################################
+# Attention Scan Sonos Player
+#####################################################
+
+sub attention_scan
+{
+	LOGDEB "Scan request for Sonos Zones will be executed.";
+	$template->param("NOTICE", "1");	
+	$template_title = "$SL{'BASIS.MAIN_TITLE'}: v$sversion";
+	LoxBerry::Web::lbheader($template_title, $helplink, $helptemplatefilename);
+	print $template->output();
+	LoxBerry::Web::lbfooter();
+	exit;
+}
+	
 
 
 ##########################################################################
@@ -752,6 +946,15 @@ sub error
 
 sub inittemplate
 {
+	# Check, if filename for the maintemplate is readable, if not raise an error
+	stat($lbptemplatedir . "/" . $maintemplatefilename);
+	if ( !-r _ )
+	{
+		$error_message = "Error: Main template not readable";
+		LOGCRIT "The ".$maintemplatefilename." file could not be loaded. Abort plugin loading";
+		LOGCRIT $error_message;
+		&error;
+	}
 	$template =  HTML::Template->new(
 				filename => $lbptemplatedir . "/" . $maintemplatefilename,
 				global_vars => 1,
@@ -759,8 +962,7 @@ sub inittemplate
 				die_on_bad_params=> 0,
 				associate => $pcfg,
 				%htmltemplate_options,
-				debug => 1,
-				cache => 0,
+				debug => 1
 				);
 	%SL = LoxBerry::System::readlanguage($template, $languagefile);			
 
@@ -772,11 +974,9 @@ sub inittemplate
 ##########################################################################
 
 sub printtemplate
-{
-	# Print Template
-	$template_title = "$SL{'BASIC.MAIN_TITLE'}: v$sversion";
-	LoxBerry::Web::head();
-	LoxBerry::Web::pagestart($template_title, $helplink, $helptemplate);
+{	
+	#our $htmlhead = '<link rel="stylesheet" type="text/css" href="css/flipswitch.css" media="screen" />';
+	LoxBerry::Web::lbheader("$SL{'BASIS.MAIN_TITLE'}: v$sversion", $helplink, $helptemplate);
 	print LoxBerry::Log::get_notifications_html($lbpplugindir);
 	print $template->output();
 	LoxBerry::Web::lbfooter();
@@ -800,7 +1000,7 @@ sub print_test
 	print "*********************************************************************************************";
 	print "<br>";
 	print "<br>";
-	print $content;
+	print $content; 
 	exit;
 }
 

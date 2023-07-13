@@ -5,8 +5,9 @@ pgrep ot-recorder
 exitcode=$?
 if [[ $exitcode != 0 ]]; then
 	# Restart if not
-	service ot-recorder --initialize
-	service systemctl restart ot-recorder
+	mkdir /var/spool/owntracks/recorder/htdocs
+	ot-recorder --initialize
+	systemctl restart ot-recorder
 	sleep 10
 fi
 	done
