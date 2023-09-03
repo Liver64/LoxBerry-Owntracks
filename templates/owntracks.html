@@ -6,7 +6,7 @@
 
 <body>
 <!--<form method="post" name="main_form" id="main_form" accept-charset="utf-8" data-ajax="false" action="./index.cgi" onsubmit="return false;">-->
-<form method="post" name="main_form" id="main_form" accept-charset="utf-8" data-ajax="false" action="./index.cgi">
+<form method="post" name="main_form" id="main_form" accept-charset="utf-8" data-ajax="false" action="./index.cgi?form"">
 
 <input type="hidden" name="saveformdata" value="1">
 <a type="hidden "id="existingLink" href="/opt/loxberry/data/plugins/owntracks4lox/"></a>
@@ -18,14 +18,15 @@
 <!-- Header-->
 
 <input type="hidden" name="locationdata" value="<TMPL_VAR LOCATION.locationdata>">
-
 <table class="formtable" border="0" width="100%" cellpadding="10">
 	<tr>
 		<div class="recorder" style="display:flex;align-items:center;justify-content:center;">
-				<span id="recorderstate"></span>&nbsp;|
-				&nbsp;<span id="gatewaystate"></span>&nbsp;| 
-				&nbsp;<span id="mosquittostate"></span>&nbsp;|
-				&nbsp;<font COLOR="blue"><TMPL_VAR SAVE></font>
+			<span id="recorderstate"></span>&nbsp;|
+		</div>
+		<div class="gate" style="display:flex;align-items:center;justify-content:center;">
+			&nbsp;<span id="gatewaystate"></span>&nbsp;| 
+			&nbsp;<span id="mosquittostate"></span>&nbsp; &nbsp;
+			<!--&nbsp;<font COLOR="blue"><TMPL_VAR SAVE></font>-->
 		</div>
 		<div class="wide">
 		<img width="64" height="64" src="/plugins/<TMPL_VAR PLUGINDIR>/images/owntracks_64.png" alt="">
@@ -66,6 +67,7 @@
 					data-validation-error-msg="<TMPL_VAR VALIDATION.DYNDNS>">
 			</td>
 			<td valign="left" style="height: 33px; width: 6%; text-align: left;">			
+				<!--<input id="port" name="port" type="text" class="textfield" placeholder="TCP Port" value="<TMPL_VAR CONNECTION.port>" disabled=disabled"-->
 				<input id="port" name="port" type="text" class="textfield" placeholder="TCP Port" value="<TMPL_VAR CONNECTION.port>"
 					data-validation-rule="special:port"
 					data-validation-error-msg="<TMPL_VAR VALIDATION.DYNDNS_PORT>">
@@ -88,7 +90,7 @@
 			</td>
 			<td valign="left" style="height: 33px; width: 5%; text-align: left;">
 			<input id="location" name="location" type="text" class="textfield" placeholder="<TMPL_VAR MENU.LOCATION>" value="<TMPL_VAR LOCATION.location>"
-					data-validation-rule="^([ÃƒÂ¤ÃƒÂ¶ÃƒÂ¼Ãƒâ€“ÃƒÅ“ÃƒÅ¸Ãƒâ€ž A-Za-z0-9\ ]){3,20}$"
+					data-validation-rule="^([A-Za-z0-9_-]){3,20}$"
 					data-validation-error-msg="<TMPL_VAR VALIDATION.ERROR_LOCATION>">			
 			</td>
 			<td valign="left" style="height: 33px; width: 3%; text-align: left;">
@@ -155,6 +157,9 @@
 			</td>
 			
 		</table>
+		<!--<center>
+		<a name="btnot" id="btnot" data-role="button" data-inline="true" data-mini="true" data-icon="check"><TMPL_VAR BUTTON.SAVE_CONFIG></a>	
+		</center>-->
 </tr>
 <hr/>
 
@@ -243,27 +248,17 @@
 <hr/>
 
 </div>
+
 <tr>
 <p>
 	<center>
-		<!--<a id="btncancel" data-role="button" data-inline="true" data-mini="true" data-icon="delete" href="/admin/plugins/onwtracks/index.cgi"><TMPL_VAR BUTTON.CANCEL></a>-->
-		<button type="submit" form="main_form" name="btnsubmit" id="btnsubmit" data-role="button" data-inline="true" data-mini="true" data-icon="check"><TMPL_VAR BUTTON.SAVE></button>
-		<a id="restart" name="restart" data-role="button" data-inline="true" data-mini="true" data-icon="refresh"><TMPL_VAR BUTTON.RESTART></a>
-			<!--<div style="display:flex;align-items:center;justify-content:center;">
-				<span id="recorderstate"></span>&nbsp;|
-				&nbsp;<span id="gatewaystate"></span>&nbsp;| 
-				&nbsp;<span id="mosquittostate"></span>
-			</div>-->
-		<div>
-		<br/>
-			<!--<td colspan=3 valign="middle" style="height: 36px">
-				<font COLOR="blue"><TMPL_VAR SAVE></font>
-			</td>-->
-			<div id="log"></div>
-		</div>
+		<button type="submit" form="main_form" name="btnsubmit" id="btnsubmit" data-role="button" data-inline="true" data-mini="true" data-icon="check"><TMPL_VAR BUTTON.SAVE_USER></button>
+		<a  id="restart" name="restart" data-role="button" data-inline="true" data-mini="true" data-icon="refresh"><TMPL_VAR BUTTON.RESTART></a>
+		<div id="log"></div>
 	</center>
 </p> 
 </tr>
+
 </form>
 </body>
 
@@ -271,25 +266,26 @@
 
 $(document).on('pageinit', function() {
 	track_on();
-	//update_pids();
 });
 
 
 
 function track_on()  {
-var trackvalue = $('#track').val();
+	var trackvalue = $('#track').val();
 	if (trackvalue == "true" ) {
   		$('#restart').fadeIn(600);
   		$('.api').fadeIn(600);
   		$('.legend').fadeIn(600);
   		$('.picture').fadeIn(600);
   		$('.recorder').fadeIn(600);
+		$('.UUID').fadeIn(600);
  	} else {
   		$('#restart').fadeOut(600);
   		$('.api').fadeOut(600);
   		$('.legend').fadeOut(600);
   		$('.picture').fadeOut(600);
   		$('.recorder').fadeOut(600);
+		$('.UUID').fadeOut(600);
   	}
 }
 
@@ -300,18 +296,15 @@ function AddUser() {
   // Total number of User
   var iteration = document.getElementById('countuser').value;
   iteration = parseInt(iteration)
-
   var tbl = document.getElementById('users');
 
   // Del 1. row if there where no User
   if ( iteration < 1 ) {
     var row = tbl.deleteRow(-1);
   }
-
   var lastRow = tbl.rows.length;
   iteration += 1;
   document.getElementById("countuser").value = iteration;
-
   // Add cells
   var row = tbl.insertRow(lastRow);
   var cellRight = row.insertCell(0);
@@ -324,29 +317,11 @@ function AddUser() {
   cellRight.innerHTML = '<img src="/plugins/<TMPL_VAR PLUGINDIR>/images/red.png" id="tra' + iteration + '" name="tra' + iteration + '">\n'  
   console.log("New row inserted. New countuser=" + iteration + "");
   $('input[type=text].countuser').val(iteration);		
-  // Recreate JQUERY styles
   $("#main_form").trigger('create');
-  //$('#main_form').selectmenu('refresh');
+
 }
 
-
-// function to automatically download created file
-
-// https://stackoverflow.com/questions/1066452/easiest-way-to-open-a-download-window-without-navigating-away-from-the-page/1066461
-function downloadFile(filePath)  {
-    var a = document.createElement('A');
-	a.href = filePath;
-	a.download = filePath.substr(filePath.lastIndexOf('/') + 1);
-	document.body.appendChild(a);
-	a.click();
-	document.body.removeChild(a);
-	console.log("File: " + a.download + " saved");
-	$("#main_form").trigger('create');
-	location.reload();
-}
-
-
-
+// Update Pids from index.cgi
 function update_pids() {
 	
 	$.post( 'index.cgi', {
@@ -381,7 +356,7 @@ function update_pids() {
 }
 	
 	
-
+// Restart Tracking (ot recorder)
 $(function() {
 
 $("#restart").click(function(){
@@ -400,26 +375,38 @@ $("#restart").click(function(){
 			console.log( "ajax_post", "finished", resp );
 		$("#restart").attr("disabled", false);
 		update_pids();
-			
+		url = './index.cgi?do=restarttracking';
+		document.location.href = url;	
 	  });
 	});
-
-	
 });
 
 
 $(document).ready( function ()  {
-
+		$("form#main_form").submit(function(e) {
+			
+		});	
 		setInterval(function(){ update_pids(); }, 5000);
 		update_pids();
-				
-		//var iteration = $('#users >tbody >tr').length;	
+		
+		// form validation
 		var iteration = document.getElementById('countuser').value;
 		iteration = parseInt(iteration)
 		iteration += 1;
 		for (i = 1; i < iteration; ++i) {
+		//console.log('#UUID' + i + '');
+		//var trackvalue = $('#track').val();
 			validate_enable('#username' + i + '');
+			//if (document.getElementById('#UUID' + i + ''))   {
 			validate_chk_object(['#username' + i + '']);
+			//} else {
+			//	validate_enable('#UUID' + i + '');
+			//	validate_enable('#uuidmajor' + i + '');
+			//	validate_enable('#uuidminor' + i + '');
+			//	validate_chk_object(['#username' + i + '','#UUID' + i + '','#uuidmajor' + i + '','#uuidminor' + i + '']);
+			//}
+			//validate_chk_object(['#username' + i + '','#UUID' + i + '','#uuidmajor' + i + '','#uuidminor' + i + '']);
+			
 			console.log('#username' + i + '');
 		}
 		validate_enable('#dyndns');
@@ -429,86 +416,13 @@ $(document).ready( function ()  {
 		validate_enable('#latitude');
 		validate_enable('#longitude');
 		validate_chk_object(['#dyndns','#port','#location','#radius','#latitude','#longitude']);
-				
 		$("#main_form").trigger('create');
 		
-		
-		
-	$("#users").on('click','.createconfbutton',function(event)  {
-
-         // Prevent default posting of form - put here to work in case of errors
-    	 event.preventDefault();
-    	
-    	 // *** declare variables ***
-         //***************************************************************************************
-         // get the current row value
-         var currentRow =  $(this).closest("tr"); 
-         var name = currentRow.find(".uname").val();
-         console.log("Name: " + name + " identified");
- 		 // get the current row index
-         var rowId = $(this).closest('tr').attr('rowIndex');
-	     rowId = $(this).closest('tr').prop('rowIndex');
-	     console.log("rowIndex: " + rowId + " identified");
-	     // other variables
-	     var dyndns = $('#dyndns').val();
-	     var port = $('#port').val();
-	     var location = $('#location').val();
-	     var radius = $('#radius').val();
-	     var longitude = $('#longitude').val();
-	     var latitude = $('#latitude').val();
-	     //***************************************************************************************
- 
-        // show that something is loading
-        $('#response' + rowId +'').html("<font face='Arial' size='3' color='blue'><TMPL_VAR VALIDATION.WAIT_ANSWER></font>");
-        
-        /*
-         * function(data){... - data contains the response from create_ot_config.php
-         */
-        console.log("trying to post...");
-        $.post('/plugins/<TMPL_VAR PLUGINDIR>/create_ot_config.php', 
-        	{ 
- 		        dyndns: dyndns, 
-        		port: port,
-        		location: location,
-        		radius: radius,
-        		longitude: longitude,
-        		latitude: latitude,
-        		name: name,
-        		rowIndex: rowId
-        		
-		}).done(function(data) {
-		    $('#response' + rowId +'').html("<font face='Arial' size='3' color='green'><TMPL_VAR VALIDATION.SAVE_FILE></font>");
-		    console.log("ajax_post", "success");
-		    path = "http://<TMPL_VAR LBADR>/admin/plugins/<TMPL_VAR PLUGINDIR>/files/user_app/";
-		    filePath = path + data;
-		    console.log("Source: " + filePath);
-		    // auto download file
-		    downloadFile(filePath);
-		}).fail(function (jqXHR, textStatus, errorThrown) {
-        	$('#response' + rowId +'').html("<font face='Arial' size='3' color='red'>Error returned: " + errorThrown + "</font>");
-        	console.log("ajax_post", "error" + errorThrown); 
-        }).always(function(data) {
-			//console.log( "finished" );
-		});
-		//location.reload();
-    });
     
-$('#track').on('change',function(){
-	var trackvalue = $('#track').val();
-	if (trackvalue == "true" ) {
-  		$('#restart').fadeIn(600);
-  		$('.api').fadeIn(600);
-  		$('.legend').fadeIn(600);
-  		$('.picture').fadeIn(600);
-  		$('.recorder').fadeIn(600);
- 	} else {
-  		$('#restart').fadeOut(600);
-  		$('.api').fadeOut(600);
-  		$('.legend').fadeOut(600);
-  		$('.picture').fadeOut(600);
-  		$('.recorder').fadeOut(600);
-  	}
-});  
+		// Fade In/-Out fields depending on Track On/Off
+		$('#track').on('change',function(){
+			track_on();
+		});  
 	
 
  
@@ -561,36 +475,139 @@ $('#track').on('change',function(){
 </TMPL_IF>
 
 
-<TMPL_IF TRACKING>
-<center>
-			<table border=0>
-				<tr>
-					<td align="center">
-						<h2><FONT>coming soon ;-)</FONT></h2>
-						<p>
-							<TMPL_VAR ERR_MESSAGE>
-							<br />
-							<br />
-						</p>
-					</td>
-				</tr>
-				<tr>
-					<td align="center">
-						<p>
-							<!--<a id="btnback" onclick="location.href='/admin/system/index.cgi'" class="ui-btn ui-btn-inline ui-mini ui-corner-all ui-btn-icon-left ui-icon-delete"><TMPL_VAR ERR_BUTTON_BACK></a>-->
-						</p>
-					</td>
-				</tr>
-			</table>
-		</center>
-</TMPL_IF>
-
-
-
 <TMPL_IF LOGFILES>
 <!-- form 'LOGFILES' START -->
 	<TMPL_VAR LOGLIST_HTML>
 <!-- form 'LOGFILES' END -->
 </TMPL_IF LOGFILES>
+
+<TMPL_IF SAVE>
+    <center>
+        <table border=0>
+            <tr>
+                <td align="center">
+                    <h2>
+                        <TMPL_VAR SAVE.SAVE_ALL_OK>
+                    </h2>
+                    <p>
+                        <TMPL_VAR SAVE.SAVE_MESSAGE>
+                    </p>
+					
+					<p>
+                        <TMPL_VAR SAVE.SAVE_USERFILES>
+                    </p>
+					<p>
+					<FONT COLOR="blue">
+                        <TMPL_VAR SAVE.SAVE_FODLERFILES>
+					</FONT>	
+					</p>
+					<br>
+					<p>
+					<FONT COLOR="#FF0000">
+						<TMPL_VAR OT_MESSAGE>
+					</FONT>
+                    </p>
+                </td>
+            </tr>
+            <tr>
+                <td align="center">
+                    <p>
+                        <a id="btnok" data-role="button" data-inline="true" data-mini="true" data-icon="check" href="./index.cgi">
+                            <TMPL_VAR SAVE.SAVE_BUTTON_OK>
+                        </a>
+                    </p>
+                </td>
+            </tr>
+        </table>
+    </center>
+</TMPL_IF>
+
+
+<TMPL_IF ERROR>
+    <center>
+        <table border=0>
+            <tr>
+                <td align="center">
+                    <h2>
+                        <FONT COLOR="#FF0000">
+                            <TMPL_VAR ERRORS.ERR_TITLE>
+                        </FONT>
+                    </h2>
+                    <p>
+                        <TMPL_VAR ERR_MESSAGE>
+                    </p>
+                </td>
+            </tr>
+            <tr>
+                <td align="center">
+                    <p>
+                        <a id="btnok" data-role="button" data-inline="true" data-mini="true" data-icon="check" href="./index.cgi">
+                            <TMPL_VAR ERRORS.ERR_BUTTON_BACK>
+                        </a>
+                    </p>
+                </td>
+            </tr>
+        </table>
+    </center>
+</TMPL_IF>
+
+
+<TMPL_IF TRACK>
+    <center>
+        <table border=0>
+            <tr>
+                <td align="center">
+                    <h2>
+                        <TMPL_VAR SAVE_TRACKING.SAVE_ALL_OK>
+                    </h2>
+                    <p>
+                        <TMPL_VAR SAVE_TRACKING.SAVE_MESSAGE>
+                    </p>
+                </td>
+            </tr>
+            <tr>
+                <td align="center">
+                    <p>
+                        <a id="btnok" data-role="button" data-inline="true" data-mini="true" data-icon="check" onclick="location.href='./index.cgi'">
+                            <TMPL_VAR SAVE.SAVE_BUTTON_OK>
+                        </a>
+                    </p>
+                </td>
+            </tr>
+        </table>
+    </center>
+	<script>
+    </script>
+</TMPL_IF>
+
+<TMPL_IF MIGRATION>
+    <center>
+        <table border=0>
+            <tr>
+                <td align="center">
+                    <h2>
+						<FONT COLOR="blue">
+							<TMPL_VAR MIGRATION.MIGRATE_OK>
+						</FONT>
+                    </h2>
+                    <p>
+                        <TMPL_VAR MIGRATION.MIGRATE_MESSAGE>
+                    </p>
+                </td>
+            </tr>
+            <tr>
+                <td align="center">
+                    <p>
+                        <a id="btnok" data-role="button" data-inline="true" data-mini="true" data-icon="check" href="./index.cgi">
+                            <TMPL_VAR SAVE.SAVE_BUTTON_OK>
+                        </a>
+                    </p>
+                </td>
+            </tr>
+        </table>
+    </center>
+	<script>
+    </script>
+</TMPL_IF>
 
 

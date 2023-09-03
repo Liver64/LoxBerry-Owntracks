@@ -10,7 +10,9 @@ if [ ! -d "REPLACELBPCONFIGDIR/recorder" ]; then
 	sudo apt install ot-recorder
 	
 	install -m444 /usr/share/doc/ot-recorder/ot-recorder.service /etc/systemd/system/ot-recorder.service
-		
+	
+	chown loxberry /etc/default/ot-recorder
+	
 	systemctl enable ot-recorder
 	systemctl start ot-recorder
 	

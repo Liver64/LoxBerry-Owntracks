@@ -2,25 +2,32 @@
 header('Content-Type: text/html; charset=utf-8');
 require_once "loxberry_system.php";
 
-$src = LBPHTMLAUTHDIR."/files/";
-$dest = LBPHTMLAUTHDIR."/files/user_app/";
+$srcDir = LBPHTMLAUTHDIR."/files/user_app/";
+$destDir = LBPDATADIR."/user_config_files/";
 echo '<PRE>';
-$files = scandir($src);
-#var_dump($files);
-foreach($files as $file){
-    if (is_file($src.$file)) {
-        $rename_file = $dest.$file;
-		rename($src.$file, $rename_file);
-    } else {
-		continue;
-	}
-}
-$files_ren = scandir($dest);
-foreach($files_ren as $file1){
-    if (is_file($dest.$file1)) {
-		$teile = explode("_", $file1);
-		copy($dest.$file1, $dest.$teile[1].".otrc");
-    }
-}
 
+if (file_exists($destDir)) {
+  if (is_dir($destDir)) {
+    if (is_writable($destDir)) {
+      if ($handle = opendir($srcDir)) {
+        while (false !== ($file = readdir($handle))) {
+          if (is_file($srcDir . '/' . $file)) {
+            rename($srcDir . '/' . $file, $destDir . '/' . $file);
+          }
+        }
+        closedir($handle);
+      } else {
+        echo "$srcDir could not be opened.\n";
+      }
+    } else {
+      echo "$destDir is not writable!\n";
+    }
+  } else {
+    echo "$destDir is not a directory!\n";
+  }
+} else {
+  echo "$destDir does not exist\n";
+}
+rmdir( LBPHTMLAUTHDIR."/files/user_app/");
+rmdir( LBPHTMLAUTHDIR."/files/");
 ?>
