@@ -18,6 +18,6 @@ echo "<INFO> Backing up existing log files"
 cp -p -v -r $5/log/plugins/$3/ /tmp/$1\_upgrade/log
 
 echo "<INFO> Backing up existing User App files"
-cp -p -v -r $5/webfrontend/htmlauth/plugins/$3/files /tmp/$1\_upgrade/webfrontend/htmlauth
+cp -p -v -r $5/webfrontend/htmlauth/plugins/$3/files /tmp/$1\_upgrade/webfrontend/htmlauth/files
 
 exit 0

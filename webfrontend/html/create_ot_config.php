@@ -95,8 +95,10 @@ function prepare_config_file($ot_config_file, $credentials)  {
 		$ot_config_file['deviceId'] = $key;
 		if (empty($value[0]))   {
 			$ot_config_file['waypoints'][0]['desc'] = $config['LOCATION']['location'];
+			$ot_config_file['waypoints'][0]['rad'] = $config['LOCATION']['radius'];
 		} else {
 			$ot_config_file['waypoints'][0]['desc'] = $config['LOCATION']['location'].":".$value[0].":".$value[1].":".$value[2];
+			$ot_config_file['waypoints'][0]['rad'] = '0';
 		}
 		LOGDEB("Owntracks App config file for '".$key."' has been prepared.");
 		//$FileNameOT = LBPHTMLAUTHDIR."/user_config_files/OT_".$key."_".$config['LOCATION']['location']."_".$config['LOCATION']['radius']."_".date("Ymd").".otrc";

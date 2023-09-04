@@ -291,12 +291,14 @@ if ($pcfg->param("LOCATION.longitude") eq '' or $pcfg->param("LOCATION.latitude"
 		LOGDEB "MQTT hostname obtained";
 	}
 	
-	# check if migration to be executed or fresh installation	
+	# check if migration to be executed or fresh installation
+	my $old_folder = $lbphtmlauthdir."/files/";
+	
 	if ($pcfg->param("CONNECTION.mig") ne "completed")  {
-		if (-d $old_folder)  {
+		#if (-d $old_folder)  {
 			&migrate_user;
 			exit;
-		}
+		#}
 	}
 	
 	# Navbar
@@ -387,8 +389,8 @@ sub form
 			my @fields = $pcfg->param($key);
 			$rowsuser .= "<tr><td style='width: 4%;'><INPUT type='checkbox' style='width: 100%' name='chkuser$countuser' id='chkuser$countuser' align='left'/></td>\n";
 			$rowsuser .= "<td style='width: 22%'><input id='username$countuser' name='username$countuser' type='text' class='uname' placeholder='$SL{'MENU.USER_LISTING'}' value='$user' align='left' data-validation-error-msg='$SL{'VALIDATION.USER_NAME'}' data-validation-rule='^([äöüÖÜßÄ A-Za-z0-9\ ]){1,20}' style='width: 100%;'></td>\n";
-			#$rowsuser .= "<td style='width: 4%'><div class='wrapper'><a name='create$countuser' id='create$countuser' class='createconfbutton' data-auto-download data-role='button' data-inline='true' data-mini='true' data-icon='check'>$SL{'BUTTON.NEW_CONFIG'}</a></div></td>\n";
-			$rowsuser .= "<td style='width: 25%'><input name='UUID$countuser' id='UUID$countuser' class='uuid' placeholder='Beacon UUID' type='text' value='$fields[0]' data-validation-rule='[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[34][0-9a-fA-F]{3}-[89ab][0-9a-fA-F]{3}-[0-9a-fA-F]{12}' data-validation-error-msg='$SL{'VALIDATION.UUID'}'></td>\n";
+			#$rowsuser .= "<td style='width: 4%'><a name='create$countuser' id='create$countuser' class='createconfbutton' data-auto-download data-role='button' data-inline='true' data-mini='true' data-icon='check'>$SL{'BUTTON.NEW_CONFIG'}</a></td>\n";
+			$rowsuser .= "<td style='width: 25%'><input name='UUID$countuser' id='UUID$countuser' class='uuid' placeholder='iBeacon UUID' type='text' value='$fields[0]' data-validation-rule='[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[34][0-9a-fA-F]{3}-[89ab][0-9a-fA-F]{3}-[0-9a-fA-F]{12}' data-validation-error-msg='$SL{'VALIDATION.UUID'}'></td>\n";
 			$rowsuser .= "<td style='width: 5%'><input name='uuidmajor$countuser' id='uuidmajor$countuser' class='uuid' placeholder='Major' type='text' value='$fields[1]' data-validation-rule='special:port' data-validation-error-msg='$SL{'VALIDATION.UUID_MAJOR'}'></td>\n";
 			$rowsuser .= "<td style='width: 5%'><input name='uuidminor$countuser' id='uuidminor$countuser' class='uuid' placeholder='Minor' type='text' value='$fields[2]' data-validation-rule='special:port' data-validation-error-msg='$SL{'VALIDATION.UUID_MINOR'}'></td>\n";			
 			
@@ -591,7 +593,7 @@ sub recorder_config
 
 sub migrate_user()
 {	
-	my $old_folder = $lbphtmlauthdir."/files/user_app";
+	my $old_folder = $lbphtmlauthdir."/files/user_app/";
 	$countappuser = 10;
 	
 	if (!-d $lbpdatadir."/user_config_files") {
@@ -601,28 +603,31 @@ sub migrate_user()
 	
 	# Migrate
 	for ($i = 1; $i <= $countappuser; $i++) {
-		if ($pcfg->param("USER$i.name") ne '')  {
-			our $old_user = $pcfg->param("USER$i.name");
-			$pcfg->param("USER." . $old_user . "[]", "");
+		my $userid = $pcfg->param("USER$i.name");
+		if ($userid ne '')  {
+			$pcfg->param("USER." . $userid . "[]", "");
 			LOGOK "Migration: USER$i=$old_user has been migrated";
 		}
 	}
 	
 	# delete
 	for ($i = 1; $i <= $countappuser; $i++) {
-		if ($pcfg->param("USER$i.name") ne '')  {
-			$pcfg->delete("USER$i.name", $old_user);
-			$pcfg->delete("USER" . $i );
-			LOGOK "Deletion: USER$i has been deleted";
+	if ($pcfg->param("USER$i.name") ne '')  {
+			$pcfg->delete("USER$i.name");
+			$pcfg->delete("USER$i");
+			LOGOK "Deletion: USER$i.name has been deleted";
 		}
 	}
 	$pcfg->param("CONNECTION.mig", "completed");	
 	$pcfg->delete("CONNECTION.migration");
 	$pcfg->save() or &error;
+	unlink glob $lbphtmlauthdir."/files/user_app/*.*";
+	rmdir( $lbphtmlauthdir."/files/user_app/");
+	rmdir( $lbphtmlauthdir."/files/");
 	LOGOK "Migration saved and completed";
-	LOGINF "Move off files has been called";
-	my $filemove = qx(/usr/bin/php $lbphtmldir/migration_app_files.php);
-	LOGOK "All files has been moved";
+	#LOGINF "Move off files has been called";
+	#my $filemove = qx(/usr/bin/php $lbphtmldir/migration_app_files.php);
+	LOGOK "All old files has been deleted";
 	&print_migration;
 	exit;
 }

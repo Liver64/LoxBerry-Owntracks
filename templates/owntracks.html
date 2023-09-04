@@ -190,7 +190,10 @@
 							<th align="center" style="width: 4%">
 							<img class='ico_delete' src='/plugins/<TMPL_VAR PLUGINDIR>/images/recycle-bin.png' align="center" border='0' width='24' height='24'></th>
 						    <th align="left" style="height: 33px; width: 22%;"><TMPL_VAR MENU.USERNAME></th>
-						    <th align="left" style="height: 33px; width: 4%;"><TMPL_VAR MENU.CONFIG_FILE>
+						    <th align="left">
+							<a id="linkbeacon" href="https://owntracks.org/booklet/guide/beacons/" target="_blank">
+                                    iBeacon Support
+                                </a>
 							</th>
 							<tbody>
 								<div name="userdyn" id="userdyn">
@@ -257,6 +260,7 @@
 		<div id="log"></div>
 	</center>
 </p> 
+<iframe style="display:none;" name="hiddenIframe" id="hiddenIframe"></iframe>
 </tr>
 
 </form>
