@@ -5,7 +5,7 @@
 systemctl stop ot-recorder
 systemctl disable ot-recorder
 
-apt-get –-purge remove ot-recorder
+apt-get purge ot-recorder
 
 # remove files
 unlink /usr/sbin/ot-recorder

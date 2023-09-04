@@ -463,7 +463,6 @@ sub save
 			system("/bin/sh $lbpbindir/restart.sh");
 			unlink $lbpconfigdir."/ot-recorder";
 			LOGDEB "Tracking change saved, Recorder restarted";
-
 		}
 	} else {
 		$pcfg->param("CONNECTION.track", "false");

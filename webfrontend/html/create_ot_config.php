@@ -33,6 +33,7 @@ register_shutdown_function('shutdown');
 # declare variables/constants
 $ot_template_file = $lbpdatadir."/config_template.otrc";
 $config_file = $lbpconfigdir."/owntracks.cfg";
+$user_app_dir = $lbpdatadir."/user_config_files/";
 
 echo '<PRE>';
 
@@ -63,6 +64,11 @@ foreach ($userid as $type => $key) {
 $config['USER'] = $userarr;
 LOGDEB("Owntracks is ready for usage");
 #print_r($config);
+
+if (!is_dir($user_app_dir))  {
+	mkdir($lbpdatadir."/user_config_files");
+	LOGDEB("User App config directory created");
+}
 
 $credentials = mqtt_connectiondetails();
 $ot_config_file = read_tmpl_config_file($ot_template_file);
