@@ -295,10 +295,10 @@ if ($pcfg->param("LOCATION.longitude") eq '' or $pcfg->param("LOCATION.latitude"
 	my $old_folder = $lbphtmlauthdir."/files/";
 	
 	if ($pcfg->param("CONNECTION.mig") ne "completed")  {
-		#if (-d $old_folder)  {
+		if (-d $old_folder)  {
 			&migrate_user;
 			exit;
-		#}
+		}
 	}
 	
 	# Navbar
