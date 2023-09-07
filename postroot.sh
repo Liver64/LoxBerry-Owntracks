@@ -8,7 +8,7 @@ if [ ! -d "REPLACELBPCONFIGDIR/recorder" ]; then
 	echo "deb  http://repo.owntracks.org/debian bullseye main" | sudo tee /etc/apt/sources.list.d/owntracks.list > /dev/null
 	curl -sS https://dl.yarnpkg.com/debian/pubkey.gpg | apt-key add -
 	sudo apt update
-	sudo apt install ot-recorder
+	sudo apt install -y ot-recorder
 	
 	install -m444 /usr/share/doc/ot-recorder/ot-recorder.service /etc/systemd/system/ot-recorder.service
 	

@@ -81,6 +81,7 @@ if (!defined $pcfg->param("CONNECTION.mig")) {
 	$pcfg->save() or &error;
 } 
 
+
 ##########################################################################
 # Read Settings
 ##########################################################################
@@ -492,6 +493,7 @@ sub save
 			$pcfg->param( "USER." . $username . "[]",  $UUID . "," . $uuidmajor  . "," . $uuidminor);
 		}
 	}
+	$pcfg->delete("CONNECTION.migration");
 	$pcfg->save() or &error;
 	LOGOK "All settings has been saved";
 	
@@ -618,9 +620,10 @@ sub migrate_user()
 		}
 	}
 	$pcfg->param("CONNECTION.mig", "completed");	
-	$pcfg->delete("CONNECTION.migration");
+	#$pcfg->delete("CONNECTION.migration");
 	$pcfg->save() or &error;
 	unlink glob $lbphtmlauthdir."/files/user_app/*.*";
+	unlink glob $lbphtmlauthdir."/files/*.*";
 	rmdir( $lbphtmlauthdir."/files/user_app/");
 	rmdir( $lbphtmlauthdir."/files/");
 	LOGOK "Migration saved and completed";
