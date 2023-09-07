@@ -249,6 +249,15 @@ if ($pcfg->param("LOCATION.longitude") eq '' or $pcfg->param("LOCATION.latitude"
 		} elsif (!$wcfg->param("WUNDERGROUND.COORDLONG") eq "")   {
 			$pcfg->param("LOCATION.longitude", $wcfg->param("WUNDERGROUND.COORDLONG"));
 			LOGDEB "Longitude has been passed over from weather4lox Wunderground settings";
+		} elsif (!$wcfg->param("WEATHERFLOW.COORDLONG") eq "")   {
+			$pcfg->param("LOCATION.longitude", $wcfg->param("WEATHERFLOW.COORDLONG"));
+			LOGDEB "Longitude has been passed over from weatherflow Wunderground settings";
+		} elsif (!$wcfg->param("OPENWEATHER.COORDLONG") eq "")   {
+			$pcfg->param("LOCATION.longitude", $wcfg->param("OPENWEATHER.COORDLONG"));
+			LOGDEB "Longitude has been passed over from openweather Wunderground settings";
+		} elsif (!$wcfg->param("VISUALCROSSING.COORDLONG") eq "")   {
+			$pcfg->param("LOCATION.longitude", $wcfg->param("VISUALCROSSING.COORDLONG"));
+			LOGDEB "Longitude has been passed over from visualcrossing Wunderground settings";
 		}
 		# import latitude
 		if (!$wcfg->param("DARKSKY.COORDLAT") eq "")   {
@@ -260,6 +269,15 @@ if ($pcfg->param("LOCATION.longitude") eq '' or $pcfg->param("LOCATION.latitude"
 		} elsif (!$wcfg->param("WUNDERGROUND.COORDLAT") eq "")   {
 			$pcfg->param("LOCATION.latitude", $wcfg->param("WUNDERGROUND.COORDLAT"));
 			LOGDEB "Latitude has been passed over from weather4lox Wunderground settings";
+		} elsif (!$wcfg->param("WEATHERFLOW.COORDLAT") eq "")   {
+			$pcfg->param("LOCATION.latitude", $wcfg->param("WEATHERFLOW.COORDLAT"));
+			LOGDEB "Latitude has been passed over from weatherflow Wunderground settings";
+		} elsif (!$wcfg->param("OPENWEATHER.COORDLAT") eq "")   {
+			$pcfg->param("LOCATION.latitude", $wcfg->param("OPENWEATHER.COORDLAT"));
+			LOGDEB "Latitude has been passed over from openweather Wunderground settings";
+		} elsif (!$wcfg->param("VISUALCROSSING.COORDLAT") eq "")   {
+			$pcfg->param("LOCATION.latitude", $wcfg->param("VISUALCROSSING.COORDLAT"));
+			LOGDEB "Latitude has been passed over from visualcrossing Wunderground settings";
 		}
 		$template->param("locationdata" => 1);
 		$pcfg->param("LOCATION.locationdata" => 1);
