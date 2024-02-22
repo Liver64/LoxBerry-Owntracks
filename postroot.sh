@@ -28,7 +28,7 @@ if [ ! -d "REPLACELBPCONFIGDIR/recorder" ]; then
 		ln -s /var/spool/owntracks/recorder/store REPLACELBPDATADIR/recorder
 	fi
 	
-	echo "<INFO> Recorder successful installed"
+	echo "<INFO> Recorder successful installed by Plugin"
 else
 	echo "<INFO> Recorder already installed"
 fi
