@@ -454,76 +454,81 @@ sub form
 # Save-Sub
 #####################################################
 
-sub save 
+sub save
 {
-	# Everything from Forms
 	my $i;
 	my $countuser = "$R::countuser";
-			
-	# OK - now installing...
-		
-	$trackstatus = $R::track;
-	$savedtrack = $pcfg->param("CONNECTION.track");
-	
-	if ($trackstatus eq "true")  {
-		&compare_config;
-		if ($count > 1)  {
-			$pcfg->param("RECORDER_HTTP.OTR_BROWSERAPIKEY", "$R::googleapikey");
-			$pcfg->param("RECORDER_MQTT.OTR_USER", "$mqtt_account");
-			$pcfg->param("RECORDER_MQTT.OTR_PASS", "$mqtt_pass");
-			$pcfg->param("CONNECTION.track", "true");
-			$pcfg->save() or &error;
-			&recorder_config;
-			LOGINF "MQTT config changed, new settings saved and recorder restarted";
-		}
-		if ($trackstatus ne $savedtrack)  {
-			$pcfg->param("CONNECTION.track", "true");
-			`cd $lbpbindir ; $lbpbindir/restart.sh > /dev/null 2>&1 &`;
-			system("/bin/sh $lbpbindir/restart.sh");
-			unlink $lbpconfigdir."/ot-recorder";
-			LOGDEB "Tracking change saved, Recorder restarted";
-		}
+
+	LOGINF "Start writing Plugin config file";
+
+	# Track state
+	$trackstatus = _val($R::track);
+	$savedtrack  = _val($pcfg->param("CONNECTION.track"));
+
+	# 1) Check if recorder relevant settings changed (before overwriting pcfg)
+	my $need_rec_update = recorder_needs_update();
+
+	# 2) Save normal plugin settings
+	$pcfg->param("LOCATION.location",   _val($R::location));
+	$pcfg->param("LOCATION.radius",     _val($R::radius));
+	$pcfg->param("LOCATION.latitude",   _val($R::latitude));
+	$pcfg->param("LOCATION.longitude",  _val($R::longitude));
+	$pcfg->param("CONNECTION.dyndns",   _val($R::dyndns));
+	$pcfg->param("CONNECTION.port",     _val($R::port));
+
+	# If tracking enabled, also store recorder-related keys in config
+	if ($trackstatus eq "true") {
+		$pcfg->param("RECORDER_HTTP.OTR_BROWSERAPIKEY", _val($R::googleapikey));
+		$pcfg->param("RECORDER_MQTT.OTR_USER", _val($mqttcred->{brokeruser}));
+		$pcfg->param("RECORDER_MQTT.OTR_PASS", _val($mqttcred->{brokerpass}));
+		$pcfg->param("CONNECTION.track", "true");
 	} else {
 		$pcfg->param("CONNECTION.track", "false");
-		system("sudo systemctl stop ot-recorder");
-		LOGDEB "Recorder stopped";
 	}
-	LOGINF "Start writing Plugin config file";
-	# turn on if TLS works
-	#$pcfg->param("CONNECTION.tls", "$R::tls");
-	$pcfg->param("LOCATION.location", "$R::location");
-	$pcfg->param("LOCATION.radius", "$R::radius");
-	$pcfg->param("LOCATION.latitude", "$R::latitude");
-	$pcfg->param("LOCATION.longitude", "$R::longitude");
-	$pcfg->param("CONNECTION.dyndns", "$R::dyndns");
-	$pcfg->param("CONNECTION.port", "$R::port");
-	
+
 	# save all user
 	for ($i = 1; $i <= $countuser; $i++) {
 		my $username = param("username$i");
-		if ( param("chkuser$i") ) { # if user should be deleted
-			$pcfg->delete( "USER." . $username . "[]" );
+		if (param("chkuser$i")) {
+			$pcfg->delete("USER." . $username . "[]");
 			unlink("$lbpdatadir/user_config_files/$username.otrc");
-		} else { # save
-			my $UUID = param("UUID$i");
+		} else {
+			my $UUID      = param("UUID$i");
 			my $uuidmajor = param("uuidmajor$i");
 			my $uuidminor = param("uuidminor$i");
-			$pcfg->param( "USER." . $username . "[]",  $UUID . "," . $uuidmajor  . "," . $uuidminor);
+			$pcfg->param("USER." . $username . "[]", $UUID . "," . $uuidmajor . "," . $uuidminor);
 		}
 	}
+
 	$pcfg->delete("CONNECTION.migration");
 	$pcfg->save() or &error;
 	LOGOK "All settings has been saved";
-	
+
+	# 3) Apply recorder update/restart logic
+	if ($trackstatus eq "true") {
+
+		# If tracking toggled from false->true OR recorder relevant settings changed
+		if ($savedtrack ne "true" || $need_rec_update) {
+			my $ok = recorder_config();   # writes /etc/default/ot-recorder
+			if ($ok) {
+				system("sudo systemctl restart ot-recorder");
+				LOGINF "Recorder restarted (tracking enabled / config changed)";
+			} else {
+				LOGERR "Recorder config update failed - recorder not restarted";
+			}
+		}
+
+	} else {
+		# tracking disabled -> stop recorder only if it was enabled before, or always (your choice)
+		system("sudo systemctl stop ot-recorder");
+		LOGDEB "Recorder stopped";
+	}
+
 	# create User specific App configuration files
-	my $file = qx(/usr/bin/php $lbphtmldir/create_ot_config.php);	
+	my $file = qx(/usr/bin/php $lbphtmldir/create_ot_config.php);
 
 	&print_save;
 	exit;
-	
-	#$content = param("USER$i");
-	#print_test($content);
-	#exit;
 }
 
 
@@ -531,78 +536,120 @@ sub save
 # Sub compare_config
 #####################################################
 
-sub compare_config 
-{	
-	$count = 1;
-	
-	# compare config in order to check if recorder require updates
-	my $saved_track = $pcfg->param("CONNECTION.track");
-	my $saved_mqtt_user = $pcfg->param("RECORDER_MQTT.OTR_USER");
-	my $saved_mqtt_pass = $pcfg->param("RECORDER_MQTT.OTR_PASS");
-	my $saved_mqtt_api = $pcfg->param("RECORDER_HTTP.OTR_BROWSERAPIKEY");
-	
-	if ($mqtt_account ne $saved_mqtt_user)  {
-			$count++;
-	}
-	if ($mqtt_pass ne $saved_mqtt_pass)  {
-			$count++;
-	}
-	if ($R::googleapikey ne $saved_mqtt_api)  {
-			$count++;
-	}
-	LOGDEB "MQTT config different, Plugin will be updated";
+sub compare_config
+{
+	# backwards compatibility wrapper
+	our $count;
+	$count = recorder_needs_update() ? 2 : 1;
 	return;
 }
+
 
 #####################################################
 # Sub Recorder Configuration
 #####################################################
 
-sub recorder_config 
-{	
-	my $mqtt_account = $mqttcred->{brokeruser};
-	my $mqtt_pass = $mqttcred->{brokerpass};
-	my $file = $lbpdatadir."/ot-recorder.txt";
-
-	# Use the open() function to create the file.
-	unless(open FILE, '>'.$file) {
-		# Die with error message 
-		# if we can't open it.
-		LOGCRIT "\nUnable to create $file\n";
-	}
-	$otport = $pcfg->param("CONNECTION.port");
-
-	# Write some text to the file.
-	print FILE "OTR_STORAGEDIR=\"/var/spool/owntracks/recorder/store\"\n";
-	print FILE "OTR_HOST=\"localhost\"\n";
-	print FILE "OTR_PORT=\"1883\"\n";
-	print FILE "OTR_USER=\"$mqtt_account\"\n";
-	print FILE "OTR_PASS=\"$mqtt_pass\"\n";
-	print FILE "OTR_HTTPHOST=\"$myip\"\n";
-	print FILE "OTR_HTTPPORT=\"$recorderhttpport\"\n";
-	print FILE "OTR_BROWSERAPIKEY=\"$R::googleapikey\"\n";
-	print FILE "OTR_TOPICS=\"owntracks/# owntracks/+/+\"\n";
-
-	# close the file.
-	close FILE;
-
-	# copy newly created file to destination
-	my $savefile = $lbpconfigdir."/ot-recorder";
-	my $finalfile = "/etc/default/ot-recorder";
-	rename $file, $lbpconfigdir."/ot-recorder";
-	copy $savefile, $finalfile;
-	LOGOK "Recorder config file saved to /etc/default/ot-recorder";
-	
-	if ($trackstatus eq "true")  {
-		$pcfg->param("CONNECTION.track", "true");
-		`cd $lbpbindir ; $lbpbindir/restart.sh > /dev/null 2>&1 &`;
-		system("/bin/sh $lbpbindir/restart.sh");
-		unlink $lbpconfigdir."/ot-recorder";
-		$pcfg->save() or &error;
-		LOGINF "Tracking change saved, Recorder restarted";
-	}
+sub recorder_config
+{
+	# nur Datei schreiben/kopieren (kein restart, kein pcfg->save)
+	my $ok = write_recorder_default_file();
 	$ot_message = $SL{'SAVE.SAVE_OT'};
-	return;
+	return $ok;
+}
+
+sub _val { defined $_[0] ? $_[0] : '' }
+
+# Returns 1 if recorder-relevant settings changed, else 0
+sub recorder_needs_update
+{
+	# NEW (Form/runtime)
+	my $new_mqtt_user = _val($mqttcred->{brokeruser});
+	my $new_mqtt_pass = _val($mqttcred->{brokerpass});
+	my $new_api       = _val($R::googleapikey);
+
+	my $new_location  = _val($R::location);
+	my $new_radius    = _val($R::radius);
+	my $new_lat       = _val($R::latitude);
+	my $new_lon       = _val($R::longitude);
+
+	my $new_dyndns    = _val($R::dyndns);
+	my $new_port      = _val($R::port);
+
+	# OLD (saved)
+	my $old_mqtt_user = _val($pcfg->param("RECORDER_MQTT.OTR_USER"));
+	my $old_mqtt_pass = _val($pcfg->param("RECORDER_MQTT.OTR_PASS"));
+	my $old_api       = _val($pcfg->param("RECORDER_HTTP.OTR_BROWSERAPIKEY"));
+
+	my $old_location  = _val($pcfg->param("LOCATION.location"));
+	my $old_radius    = _val($pcfg->param("LOCATION.radius"));
+	my $old_lat       = _val($pcfg->param("LOCATION.latitude"));
+	my $old_lon       = _val($pcfg->param("LOCATION.longitude"));
+
+	my $old_dyndns    = _val($pcfg->param("CONNECTION.dyndns"));
+	my $old_port      = _val($pcfg->param("CONNECTION.port"));
+
+	my @changes;
+	push @changes, "RECORDER_MQTT.OTR_USER"           if $new_mqtt_user ne $old_mqtt_user;
+	push @changes, "RECORDER_MQTT.OTR_PASS"           if $new_mqtt_pass ne $old_mqtt_pass;
+	push @changes, "RECORDER_HTTP.OTR_BROWSERAPIKEY"  if $new_api       ne $old_api;
+
+	push @changes, "LOCATION.location"               if $new_location  ne $old_location;
+	push @changes, "LOCATION.radius"                 if $new_radius    ne $old_radius;
+	push @changes, "LOCATION.latitude"               if $new_lat       ne $old_lat;
+	push @changes, "LOCATION.longitude"              if $new_lon       ne $old_lon;
+
+	push @changes, "CONNECTION.dyndns"               if $new_dyndns    ne $old_dyndns;
+	push @changes, "CONNECTION.port"                 if $new_port      ne $old_port;
+
+	if (@changes) {
+		LOGDEB "Recorder config needs update, changed keys: " . join(", ", @changes);
+		return 1;
+	}
+	return 0;
+}
+
+# Writes /etc/default/ot-recorder from current inputs
+use File::Copy qw(copy move);
+
+sub write_recorder_default_file
+{
+    my $mqtt_user = _val($mqttcred->{brokeruser});
+    my $mqtt_pass = _val($mqttcred->{brokerpass});
+
+    my $tmpfile   = $lbpdatadir . "/ot-recorder.txt";
+    my $savefile  = $lbpconfigdir . "/ot-recorder";
+    my $finalfile = "/etc/default/ot-recorder";
+
+    my $fh;
+    unless (open($fh, '>', $tmpfile)) {
+        LOGCRIT "Unable to create $tmpfile: $!";
+        return 0;
+    }
+
+    print $fh "OTR_STORAGEDIR=\"/var/spool/owntracks/recorder/store\"\n";
+    print $fh "OTR_HOST=\"localhost\"\n";
+    print $fh "OTR_PORT=\"1883\"\n";
+    print $fh "OTR_USER=\"$mqtt_user\"\n";
+    print $fh "OTR_PASS=\"$mqtt_pass\"\n";
+    print $fh "OTR_HTTPHOST=\"$myip\"\n";
+    print $fh "OTR_HTTPPORT=\"$recorderhttpport\"\n";
+    print $fh "OTR_BROWSERAPIKEY=\"" . _val($R::googleapikey) . "\"\n";
+    print $fh "OTR_TOPICS=\"owntracks/# owntracks/+/+\"\n";
+    close $fh;
+
+    move($tmpfile, $savefile) or do {
+        LOGCRIT "move($tmpfile -> $savefile) failed: $!";
+        return 0;
+    };
+
+    my $rc = system('sudo', '/bin/cp', '-f', $savefile, $finalfile);
+    if ($rc != 0) {
+        LOGCRIT "sudo cp to $finalfile failed (rc=$rc)";
+        return 0;
+    }
+
+    LOGOK "Recorder config file saved to $finalfile";
+    return 1;
 }
 
 

@@ -1,0 +1,3 @@
+loxberry ALL=(root) NOPASSWD: /bin/cp -f /opt/loxberry/config/plugins/owntracks4lox/ot-recorder /etc/default/ot-recorder
+loxberry ALL=(root) NOPASSWD: /bin/systemctl restart ot-recorder
+loxberry ALL=(root) NOPASSWD: /bin/systemctl stop ot-recorder

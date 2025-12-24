@@ -63,7 +63,7 @@
 			</td>
 			<td valign="left" style="height: 33px; width: 11%; text-align: left;">
 				<input id="dyndns" name="dyndns" type="text" class="textfield" placeholder="<TMPL_VAR MENU.DYN_DNS_PROVIDER>" value="<TMPL_VAR CONNECTION.dyndns>"
-					data-validation-rule="special:domainname_or_ipaddr"
+					data-validation-rule="^(?:(?:https?):\/\/)?(?:(?:\d{1,3}\.){3}\d{1,3}|(?:(?!-)[A-Za-z0-9-]{1,63}(?<!-)\.)+[A-Za-z]{2,63})(?::\d{1,5})?$"
 					data-validation-error-msg="<TMPL_VAR VALIDATION.DYNDNS>">
 			</td>
 			<td valign="left" style="height: 33px; width: 6%; text-align: left;">			
