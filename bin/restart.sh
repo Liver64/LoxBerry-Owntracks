@@ -1,7 +1,5 @@
 #!/bin/sh
 
-# Restart Service
-sudo ot-recorder --initialize
-sudo systemctl reload-or-restart ot-recorder
+sudo /bin/systemctl restart ot-recorder
 
-exit 0
+exit $?

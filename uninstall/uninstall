@@ -1,23 +1,106 @@
 #!/bin/sh
-# Will be executed as user "root".
+#
+# LoxBerry OwnTracks plugin
+# Root uninstall script
+#
 
-# stop and disable service
-systemctl stop ot-recorder
-systemctl disable ot-recorder
+echo "<INFO> Uninstalling the OwnTracks Recorder."
 
-apt-get purge -y ot-recorder
+#
+# Stop and disable the service.
+#
+if systemctl is-active --quiet ot-recorder.service 2>/dev/null; then
+    echo "<INFO> Stopping the OwnTracks Recorder service."
+    systemctl stop ot-recorder.service || \
+        echo "<WARNING> The OwnTracks Recorder service could not be stopped."
+fi
 
-# remove files
-unlink /usr/sbin/ot-recorder
-unlink /usr/bin/ocat
-rm -r /var/spool/owntracks
-unlink /etc/systemd/system/ot-recorder.service
-unlink /etc/default/ot-recorder
-rm -r /usr/share/owntracks/recorder/htdocs
-rm -r /usr/share/owntracks/recorder
-rm -r /usr/share/owntracks
-rm -r REPLACELBPCONFIGDIR/recorder
-rm -r REPLACELBPDATADIR/recorder
+if systemctl is-enabled --quiet ot-recorder.service 2>/dev/null; then
+    echo "<INFO> Disabling the OwnTracks Recorder service."
+    systemctl disable ot-recorder.service || \
+        echo "<WARNING> The OwnTracks Recorder service could not be disabled."
+fi
 
-# Exit with Status 0
+#
+# Remove the Debian package.
+#
+if dpkg-query \
+    -W \
+    -f='${Status}' \
+    ot-recorder \
+    2>/dev/null \
+    | grep -q '^install ok installed$'
+then
+    echo "<INFO> Removing the ot-recorder package."
+
+    if ! apt-get purge -y ot-recorder; then
+        echo "<WARNING> The ot-recorder package could not be removed completely."
+    fi
+else
+    echo "<INFO> The ot-recorder package is not installed."
+fi
+
+#
+# Remove service and configuration files which may have been
+# created by the plugin as a fallback.
+#
+echo "<INFO> Removing remaining OwnTracks system files."
+
+rm -f \
+    /etc/systemd/system/ot-recorder.service \
+    /etc/default/ot-recorder
+
+systemctl daemon-reload || \
+    echo "<WARNING> systemd could not reload its unit files."
+
+systemctl reset-failed ot-recorder.service >/dev/null 2>&1 || true
+
+#
+# Remove the repository definition and signing keys installed
+# by the plugin.
+#
+echo "<INFO> Removing the OwnTracks package repository."
+
+rm -f \
+    /etc/apt/sources.list.d/owntracks.list \
+    /etc/apt/sources.list.d/owntracks.sources \
+    /etc/apt/trusted.gpg.d/owntracks.asc \
+    /etc/apt/trusted.gpg.d/owntracks.gpg \
+    /etc/apt/trusted.gpg.d/repo.owntracks.org.gpg \
+    /etc/apt/trusted.gpg.d/repo.owntracks.org.asc
+
+#
+# Remove possible OwnTracks entries from the main sources.list.
+#
+if [ -f /etc/apt/sources.list ] &&
+   grep -q 'repo\.owntracks\.org' /etc/apt/sources.list; then
+
+    sed -i '\|repo\.owntracks\.org|d' /etc/apt/sources.list || \
+        echo "<WARNING> An OwnTracks entry could not be removed from /etc/apt/sources.list."
+fi
+
+#
+# Remove plugin links and plugin-created directories.
+#
+echo "<INFO> Removing OwnTracks plugin directories and links."
+
+rm -rf \
+    "REPLACELBPCONFIGDIR/recorder" \
+    "REPLACELBPDATADIR/recorder"
+
+#
+# Remove the OwnTracks Recorder web files if they were not
+# removed by the Debian package.
+#
+rm -rf /usr/share/owntracks/recorder
+
+# Remove the parent directory only when it is empty.
+rmdir /usr/share/owntracks 2>/dev/null || true
+
+if [ -d /var/spool/owntracks/recorder/store ]; then
+    echo "<INFO> Recorded OwnTracks location data was preserved in /var/spool/owntracks/recorder/store."
+fi
+
+echo "<OK> The OwnTracks Recorder was uninstalled successfully."
+
 exit 0

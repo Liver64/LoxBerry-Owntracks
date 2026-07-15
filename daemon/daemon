@@ -1,14 +1,11 @@
-#!/bin/bash
+#!/bin/sh
 
-# Check if it is running
-pgrep ot-recorder
-exitcode=$?
-if [[ $exitcode != 0 ]]; then
-	# Restart if not
-	mkdir /var/spool/owntracks/recorder/htdocs
-	ot-recorder --initialize
-	systemctl restart ot-recorder
-	sleep 10
+# Check whether OwnTracks Recorder is running.
+if ! /usr/bin/pgrep -x ot-recorder >/dev/null 2>&1; then
+    /bin/mkdir -p /var/spool/owntracks/recorder/htdocs
+    /usr/sbin/ot-recorder --initialize
+    /bin/systemctl restart ot-recorder
+    /bin/sleep 10
 fi
-	done
-fi
+
+exit 0
