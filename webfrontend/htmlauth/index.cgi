@@ -779,12 +779,52 @@ sub topics_form
 # AJAX functions
 ######################################################################
 
-sub pids 
+sub pids
 {
-	$pids{'recorder'} = (split(" ",`ps -A | grep \"ot-recorder\"`))[0];
-	$pids{'mqttgateway'} = trim(`pgrep mqttgateway.pl`) ;
-	$pids{'mosquitto'} = trim(`pgrep mosquitto`) ;
-	#LOGDEB "PIDs updated";
+    # OwnTracks Recorder
+    $pids{'recorder'} = trim(
+        `pgrep -x ot-recorder 2>/dev/null | head -n 1`
+    );
+
+    my $mqtt_pid = "";
+
+    # MQTT Gateway V2:
+    # Zuerst die offizielle PID-Datei verwenden.
+    my $v2_pidfile = "/dev/shm/mqtt_gateway.pid";
+
+    if (-r $v2_pidfile) {
+        if (open my $fh, "<", $v2_pidfile) {
+            my $pid = <$fh>;
+            close $fh;
+
+            $pid = trim($pid // "");
+
+            if ($pid =~ /^\d+$/ && -d "/proc/$pid") {
+                $mqtt_pid = $pid;
+            }
+        }
+    }
+
+    # V2-Fallback, falls die PID-Datei fehlt
+    if (!$mqtt_pid) {
+        $mqtt_pid = trim(
+            `pgrep -f '[m]qtt_gateway\\.py' 2>/dev/null | head -n 1`
+        );
+    }
+
+    # MQTT Gateway V1 als Fallback
+    if (!$mqtt_pid) {
+        $mqtt_pid = trim(
+            `pgrep -x mqttgateway.pl 2>/dev/null | head -n 1`
+        );
+    }
+
+    $pids{'mqttgateway'} = $mqtt_pid;
+
+    # Mosquitto Broker
+    $pids{'mosquitto'} = trim(
+        `pgrep -x mosquitto 2>/dev/null | head -n 1`
+    );
 }	
 
 sub ajax_header
