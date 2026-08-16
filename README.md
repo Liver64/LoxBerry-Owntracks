@@ -1,7 +1,7 @@
 # OwnTracks for LoxBerry
 
 [![LoxBerry Plugin](https://img.shields.io/badge/LoxBerry-Plugin-blue)](https://www.loxberry.de/)
-[![Release v1.0.6](https://img.shields.io/badge/release-v1.0.6-blue)](https://github.com/Liver64/LoxBerry-Owntracks/releases/tag/v1.0.6)
+[![GitHub release](https://img.shields.io/github/v/release/Liver64/LoxBerry-Owntracks?include_prereleases)](https://github.com/Liver64/LoxBerry-Owntracks/releases)
 [![GitHub issues](https://img.shields.io/github/issues/Liver64/LoxBerry-Owntracks)](https://github.com/Liver64/LoxBerry-Owntracks/issues)
 [![License](https://img.shields.io/github/license/Liver64/LoxBerry-Owntracks)](https://github.com/Liver64/LoxBerry-Owntracks)
 
