@@ -1,43 +1,89 @@
 #!/bin/sh
-# Will be executed as user "loxberry".
+#
+# LoxBerry OwnTracks plugin
+# Upgrade backup script
+#
+# Runs as user "loxberry" before LoxBerry removes the old plugin files.
+# Preserve only user-generated/persistent state so packaged defaults from a
+# newer release are not overwritten with old copies during the restore.
+#
 
-# To use important variables from command line use the following code:
-COMMAND=$0    # Zero argument is shell command
-PTEMPDIR=$1   # First argument is temp folder during install
-PSHNAME=$2    # Second argument is Plugin-Name for scipts etc.
-PDIR=$3       # Third argument is Plugin installation folder
-PVERSION=$4   # Forth argument is Plugin version
-LBHOMEDIR=$5  # Comes from /etc/environment now. Fifth argument is
-              # Base folder of LoxBerry
+set -u
 
-# Combine them with /etc/environment
-PCGI=$LBPCGI/$PDIR
-PHTML=$LBPHTML/$PDIR
-PTEMPL=$LBPTEMPL/$PDIR
-PDATA=$LBPDATA/$PDIR
-PLOG=$LBPLOG/$PDIR # Note! This is stored on a Ramdisk now!
-PCONFIG=$LBPCONFIG/$PDIR
-PSBIN=$LBPSBIN/$PDIR
-PBIN=$LBPBIN/$PDIR
+PTEMPDIR=$1
+PSHNAME=$2
+PDIR=$3
+PVERSION=$4
+LBHOMEDIR=$5
 
+BACKUP_DIR="/tmp/${PTEMPDIR}_upgrade"
+CONFIG_DIR="${LBHOMEDIR}/config/plugins/${PDIR}"
+DATA_DIR="${LBHOMEDIR}/data/plugins/${PDIR}"
+HTMLAUTH_DIR="${LBHOMEDIR}/webfrontend/htmlauth/plugins/${PDIR}"
 
-DIR=$LBPDATA/$PDIR/backup
+copy_file_if_present()
+{
+    SRC=$1
+    DST_DIR=$2
 
-echo "<INFO> Creating temporary folders for upgrading"
-mkdir -p /tmp/$1\_upgrade
-mkdir -p /tmp/$1\_upgrade/config
-mkdir -p /tmp/$1\_upgrade/webfrontend
-mkdir -p /tmp/$1\_upgrade/webfrontend/htmlauth
-#mkdir -p /tmp/$1\_upgrade/webfrontend/htmlauth/files
-mkdir -p /tmp/$1\_upgrade/log
+    if [ -f "$SRC" ]; then
+        mkdir -p "$DST_DIR" || return 1
+        cp -p "$SRC" "$DST_DIR/" || return 1
+    fi
 
-echo "<INFO> Backing up existing config files"
-cp -p -v -r $5/config/plugins/$3/ /tmp/$1\_upgrade/config
+    return 0
+}
 
-echo "<INFO> Backing up existing log files"
-cp -p -v -r $5/log/plugins/$3/ /tmp/$1\_upgrade/log
+echo "<INFO> Preparing temporary OwnTracks upgrade backup."
 
-echo "<INFO> Backing up existing User App files"
-cp -p -v -r $5/webfrontend/htmlauth/plugins/$3/ /tmp/$1\_upgrade/webfrontend/htmlauth
+rm -rf "$BACKUP_DIR"
+if ! mkdir -p \
+    "$BACKUP_DIR/config" \
+    "$BACKUP_DIR/user_config_files" \
+    "$BACKUP_DIR/legacy-htmlauth/files"
+then
+    echo "<ERROR> Could not create the temporary upgrade backup directory $BACKUP_DIR."
+    exit 2
+fi
 
+# Persistent plugin settings.
+echo "<INFO> Backing up OwnTracks plugin configuration."
+if ! copy_file_if_present "$CONFIG_DIR/owntracks.cfg" "$BACKUP_DIR/config"; then
+    echo "<ERROR> Could not back up owntracks.cfg."
+    exit 2
+fi
+
+# Generated Recorder configuration. The package may replace
+# /etc/default/ot-recorder during an upgrade; postroot.sh re-applies this copy.
+if ! copy_file_if_present "$CONFIG_DIR/ot-recorder" "$BACKUP_DIR/config"; then
+    echo "<ERROR> Could not back up the Recorder configuration."
+    exit 2
+fi
+
+# Generated OwnTracks mobile-app configuration files. Do not back up the
+# packaged config_template.otrc; the new release must keep its current template.
+if [ -d "$DATA_DIR/user_config_files" ]; then
+    echo "<INFO> Backing up generated OwnTracks app configuration files."
+    for SRC in "$DATA_DIR/user_config_files"/*.otrc; do
+        [ -f "$SRC" ] || continue
+        [ "$(basename "$SRC")" = "config_template.otrc" ] && continue
+
+        if ! cp -p "$SRC" "$BACKUP_DIR/user_config_files/"; then
+            echo "<ERROR> Could not back up $SRC."
+            exit 2
+        fi
+    done
+fi
+
+# Very old OwnTracks versions stored generated app files below htmlauth/files.
+# Preserve those files as a migration safety net for direct upgrades.
+if [ -d "$HTMLAUTH_DIR/files" ]; then
+    echo "<INFO> Backing up legacy OwnTracks app files."
+    if ! cp -p -R "$HTMLAUTH_DIR/files"/. "$BACKUP_DIR/legacy-htmlauth/files"/; then
+        echo "<ERROR> Could not back up legacy OwnTracks app files."
+        exit 2
+    fi
+fi
+
+echo "<OK> OwnTracks upgrade backup completed."
 exit 0

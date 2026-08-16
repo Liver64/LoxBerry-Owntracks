@@ -48,6 +48,7 @@ echo "<INFO> Removing remaining OwnTracks system files."
 
 rm -f \
     /etc/systemd/system/ot-recorder.service \
+    /etc/systemd/system/multi-user.target.wants/ot-recorder.service \
     /etc/default/ot-recorder
 
 systemctl daemon-reload || \
@@ -97,8 +98,16 @@ rm -rf /usr/share/owntracks/recorder
 # Remove the parent directory only when it is empty.
 rmdir /usr/share/owntracks 2>/dev/null || true
 
+# Older plugin versions created an unused htdocs directory below the spool
+# tree. Remove this plugin-created artefact, but deliberately preserve the
+# actual location history in store/.
+rm -rf /var/spool/owntracks/recorder/htdocs
+
 if [ -d /var/spool/owntracks/recorder/store ]; then
     echo "<INFO> Recorded OwnTracks location data was preserved in /var/spool/owntracks/recorder/store."
+else
+    rmdir /var/spool/owntracks/recorder 2>/dev/null || true
+    rmdir /var/spool/owntracks 2>/dev/null || true
 fi
 
 echo "<OK> The OwnTracks Recorder was uninstalled successfully."

@@ -1,5 +1,19 @@
 <style>
+.user-status-cell {
+	vertical-align: middle !important;
+	text-align: center;
+	padding-top: 0 !important;
+	padding-bottom: 0 !important;
+}
 
+.user-status-dot {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	min-height: 40px;
+	line-height: 1;
+	font-size: 18px;
+}
 </style>
 
 <TMPL_IF FORM>
@@ -187,8 +201,7 @@
 				<tr>
 					<tr>
 						<table id="users" name="users" border=0 style="width: 100%">
-							<th align="center" style="width: 4%">
-							<img class='ico_delete' src='/plugins/<TMPL_VAR PLUGINDIR>/images/recycle-bin.png' align="center" border='0' width='24' height='24'></th>
+							<th align="center" style="width: 4%"></th>
 						    <th align="left" style="height: 33px; width: 22%;"><TMPL_VAR MENU.USERNAME></th>
 						    <th align="left">
 							<a id="linkbeacon" href="https://owntracks.org/booklet/guide/beacons/" target="_blank">
@@ -221,23 +234,13 @@
 				<INPUT type="button" value="<TMPL_VAR BUTTON.ADD_USER>" data-inline="true" data-mini="true" data-icon="plus" onclick="AddUser()">
 			</td>
 		<!--center>-->
-			<td  class="legend" valign="middle" style="height: 33px; width: 80px; text-align: middle;">
-			</td>
-			<td  class="legend" valign="middle" style="height: 33px; width: 8px; text-align: middle;">
-				<img src="/plugins/<TMPL_VAR PLUGINDIR>/images/red.png">
-			</td>
+			
 			<td class="legend" valign="middle" style="height: 33px; width: 280px; text-align: middle;">
 				<label id="lred"><TMPL_VAR VALIDATION.LEGEND_RED></label>
 			</td>
-			<td class="legend" valign="middle" style="height: 33px; width: 8px; text-align: middle;">
-				<img src="/plugins/<TMPL_VAR PLUGINDIR>/images/yellow.png">
-			</td>	
 			<td class="legend" valign="middle" style="height: 33px; width: 280px; text-align: middle;">
 				<label id="lred"><TMPL_VAR VALIDATION.LEGEND_YELLOW></label>
 			</td>
-			<td class="legend" valign="middle" style="height: 33px; width: 8px; text-align: middle;">
-				<img src="/plugins/<TMPL_VAR PLUGINDIR>/images/green.png">
-			</td>	
 			<td class="legend" valign="middle" style="height: 33px; width: 280px; text-align: middle;">
 				<label id="lred"><TMPL_VAR VALIDATION.LEGEND_GREEN></label>
 			</td>
@@ -294,6 +297,39 @@ function track_on()  {
 }
 
 
+// Delete a user row via the recycle-bin icon.
+// Existing users are only marked for deletion here and are finally removed
+// from the plugin config when the form is saved. Newly added, unsaved rows
+// can be removed completely right away.
+function DeleteUser(iteration, isNewUser) {
+  var row = document.getElementById('userrow' + iteration);
+  if (!row) {
+    return;
+  }
+
+  var originalUser = document.getElementById('originalusername' + iteration);
+  var deleteMarker = document.getElementById('deleteuser' + iteration);
+
+  if (isNewUser || !originalUser || originalUser.value === '') {
+    row.parentNode.removeChild(row);
+    return;
+  }
+
+  if (deleteMarker) {
+    deleteMarker.value = originalUser.value;
+  }
+
+  // Disable editable controls so hidden/deleted rows cannot interfere with
+  // form validation. Hidden delete marker inputs remain enabled.
+  var controls = row.querySelectorAll('input:not([type="hidden"]), select, textarea, button');
+  for (var i = 0; i < controls.length; i++) {
+    controls[i].disabled = true;
+  }
+
+  row.style.display = 'none';
+}
+
+
 // Function to add new User to config
 function AddUser() {
 
@@ -311,14 +347,20 @@ function AddUser() {
   document.getElementById("countuser").value = iteration;
   // Add cells
   var row = tbl.insertRow(lastRow);
+  row.id = 'userrow' + iteration;
   var cellRight = row.insertCell(0);
-  cellRight.innerHTML = '<tr><td style="width: 4%"><INPUT type="checkbox" style="width: 100%" name="chkuser' + iteration + '" id="chkuser' + iteration + '" align="center"/></td>\n'
+  cellRight.style.width = '4%';
+  cellRight.style.textAlign = 'center';
+  cellRight.innerHTML = '<input type="hidden" name="deleteuser' + iteration + '" id="deleteuser' + iteration + '" value="">'
+    + '<input type="hidden" name="originalusername' + iteration + '" id="originalusername' + iteration + '" value="">'
+    + '<img class="ico_delete delete-user-icon" src="/plugins/<TMPL_VAR PLUGINDIR>/images/recycle-bin.png" width="24" height="24" alt="<TMPL_VAR BUTTON.DELETE_USER>" title="<TMPL_VAR BUTTON.DELETE_USER>" role="button" tabindex="0" style="cursor: pointer;" onclick="DeleteUser(' + iteration + ', true)" onkeydown="if(event.key === \'Enter\' || event.key === \' \'){ event.preventDefault(); DeleteUser(' + iteration + ', true); }">';
   var cellRight = row.insertCell(1);
   cellRight.innerHTML = '<td style="width: 22%"><input id="username' + iteration + '" name="username' + iteration + '" type="text" placeholder="<TMPL_VAR MENU.USER_LISTING>" value="" align="left" data-validation-error-msg="<TMPL_VAR VALIDATION.USER_NAME>" data-validation-rule="^([äöüÖÜßÄ A-Za-z0-9\ ]){1,20}" style="width: 100%;"></td>\n'
   var cellRight = row.insertCell(2);
   cellRight.innerHTML = '<td style="width: 4%"><font size="3" color="green"><TMPL_VAR BUTTON.SAVE_CONFIG_MESSAGE></font></td>\n'
   var cellRight = row.insertCell(3);
-  cellRight.innerHTML = '<img src="/plugins/<TMPL_VAR PLUGINDIR>/images/red.png" id="tra' + iteration + '" name="tra' + iteration + '">\n'  
+  cellRight.className = 'user-status-cell';
+  cellRight.innerHTML = '<span class="picture user-status-dot" id="tra' + iteration + '" name="tra' + iteration + '">&#128308;</span>\n'  
   console.log("New row inserted. New countuser=" + iteration + "");
   $('input[type=text].countuser').val(iteration);		
   $("#main_form").trigger('create');

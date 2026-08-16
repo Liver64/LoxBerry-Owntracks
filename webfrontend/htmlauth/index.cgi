@@ -406,7 +406,10 @@ sub form
 			$user =~ s/^USER\.//g;
 			$user =~ s/\[\]$//g;
 			my @fields = $pcfg->param($key);
-			$rowsuser .= "<tr><td style='width: 4%;'><INPUT type='checkbox' style='width: 100%' name='chkuser$countuser' id='chkuser$countuser' align='left'/></td>\n";
+			$rowsuser .= "<tr id='userrow$countuser'><td style='width: 4%; text-align: center;'>";
+			$rowsuser .= "<input type='hidden' name='deleteuser$countuser' id='deleteuser$countuser' value=''>";
+			$rowsuser .= "<input type='hidden' name='originalusername$countuser' id='originalusername$countuser' value='$user'>";
+			$rowsuser .= "<img class='ico_delete delete-user-icon' src='/plugins/$lbpplugindir/images/recycle-bin.png' width='24' height='24' alt='$SL{'BUTTON.DELETE_USER'}' title='$SL{'BUTTON.DELETE_USER'}' role='button' tabindex='0' style='cursor: pointer;' onclick='DeleteUser($countuser, false)' onkeydown='if(event.key === \"Enter\" || event.key === \" \"){ event.preventDefault(); DeleteUser($countuser, false); }'></td>\n";
 			$rowsuser .= "<td style='width: 22%'><input id='username$countuser' name='username$countuser' type='text' class='uname' placeholder='$SL{'MENU.USER_LISTING'}' value='$user' align='left' data-validation-error-msg='$SL{'VALIDATION.USER_NAME'}' data-validation-rule='^([äöüÖÜßÄ A-Za-z0-9\ ]){1,20}' style='width: 100%;'></td>\n";
 			#$rowsuser .= "<td style='width: 4%'><a name='create$countuser' id='create$countuser' class='createconfbutton' data-auto-download data-role='button' data-inline='true' data-mini='true' data-icon='check'>$SL{'BUTTON.NEW_CONFIG'}</a></td>\n";
 			$rowsuser .= "<td style='width: 25%'><input name='UUID$countuser' id='UUID$countuser' class='uuid' placeholder='iBeacon UUID' type='text' value='$fields[0]' data-validation-rule='[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[34][0-9a-fA-F]{3}-[89ab][0-9a-fA-F]{3}-[0-9a-fA-F]{12}' data-validation-error-msg='$SL{'VALIDATION.UUID'}'></td>\n";
@@ -419,17 +422,19 @@ sub form
 						
 			# check if actual data been recieved
 			if (-r $filecheck) {
-				$rowsuser .= "<td style='width: 2%'><img class='picture' src='/plugins/$lbpplugindir/images/green.png' id='tra$countuser' name='tra$countuser'></td>\n";
+				$rowsuser .= "<td class='user-status-cell' style='width: 2%'><span class='picture user-status-dot' id='tra$countuser' name='tra$countuser'>&#128994;</span></td>\n";
 				$rowsuser .= "<td style='width: 80%'><div id='response$countuser'></div></td>\n";
+				$rowsuser .= "</tr>\n";
 				next;
 			} 
 			# check if App config file exists
 			if (!-r $filecreationcheck) {
-				$rowsuser .= "<td style='width: 2%'><img class='picture' src='/plugins/$lbpplugindir/images/red.png' id='tra$countuser' name='tra$countuser'></td>\n";
+				$rowsuser .= "<td class='user-status-cell' style='width: 2%'><span class='picture user-status-dot' id='tra$countuser' name='tra$countuser'>&#128308;</span></td>\n";
 			} else {
-				$rowsuser .= "<td style='width: 2%'><img class='picture' src='/plugins/$lbpplugindir/images/yellow.png' id='tra$countuser' name='tra$countuser'></td>\n";
+				$rowsuser .= "<td class='user-status-cell' style='width: 2%'><span class='picture user-status-dot' id='tra$countuser' name='tra$countuser'>&#128993;</span></td>\n";
 			}
 			$rowsuser .= "<td style='width: 80%'><div id='response$countuser'></div></td>\n";
+			$rowsuser .= "</tr>\n";
 		}
 	}
 
@@ -488,16 +493,25 @@ sub save
 
 	# save all user
 	for ($i = 1; $i <= $countuser; $i++) {
-		my $username = param("username$i");
-		if (param("chkuser$i")) {
-			$pcfg->delete("USER." . $username . "[]");
-			unlink("$lbpdatadir/user_config_files/$username.otrc");
-		} else {
-			my $UUID      = param("UUID$i");
-			my $uuidmajor = param("uuidmajor$i");
-			my $uuidminor = param("uuidminor$i");
-			$pcfg->param("USER." . $username . "[]", $UUID . "," . $uuidmajor . "," . $uuidminor);
+		# Existing users are marked for deletion by the recycle-bin icon.
+		# The original username is submitted separately so renaming a field before
+		# clicking delete cannot accidentally target the wrong config entry.
+		my $deleteuser = param("deleteuser$i");
+		if (defined $deleteuser && $deleteuser ne '') {
+			$pcfg->delete("USER." . $deleteuser . "[]");
+			unlink("$lbpdatadir/user_config_files/$deleteuser.otrc");
+			next;
 		}
+
+		my $username = param("username$i");
+		# A newly added row can be removed client-side before it was ever saved.
+		# In that case no username field is submitted for this index.
+		next if !defined $username || $username eq '';
+
+		my $UUID      = param("UUID$i");
+		my $uuidmajor = param("uuidmajor$i");
+		my $uuidminor = param("uuidminor$i");
+		$pcfg->param("USER." . $username . "[]", _val($UUID) . "," . _val($uuidmajor) . "," . _val($uuidminor));
 	}
 
 	$pcfg->delete("CONNECTION.migration");
@@ -511,7 +525,7 @@ sub save
 		if ($savedtrack ne "true" || $need_rec_update) {
 			my $ok = recorder_config();   # writes /etc/default/ot-recorder
 			if ($ok) {
-				system("sudo systemctl restart ot-recorder");
+				system("sudo /bin/systemctl restart ot-recorder");
 				LOGINF "Recorder restarted (tracking enabled / config changed)";
 			} else {
 				LOGERR "Recorder config update failed - recorder not restarted";
@@ -520,7 +534,7 @@ sub save
 
 	} else {
 		# tracking disabled -> stop recorder only if it was enabled before, or always (your choice)
-		system("sudo systemctl stop ot-recorder");
+		system("sudo /bin/systemctl stop ot-recorder");
 		LOGDEB "Recorder stopped";
 	}
 
@@ -672,7 +686,7 @@ sub migrate_user()
 		my $userid = $pcfg->param("USER$i.name");
 		if ($userid ne '')  {
 			$pcfg->param("USER." . $userid . "[]", "");
-			LOGOK "Migration: USER$i=$old_user has been migrated";
+			LOGOK "Migration: USER$i=$userid has been migrated";
 		}
 	}
 	

@@ -1,11 +1,12 @@
 #!/bin/sh
 
-# Check whether OwnTracks Recorder is running.
+# Check whether OwnTracks Recorder is running. If not, make sure the storage
+# structure exists and then try to restart the systemd service.
 if ! /usr/bin/pgrep -x ot-recorder >/dev/null 2>&1; then
-    /bin/mkdir -p /var/spool/owntracks/recorder/htdocs
-    /usr/sbin/ot-recorder --initialize
-    /bin/systemctl restart ot-recorder
-    /bin/sleep 10
+    if /usr/sbin/ot-recorder --initialize >/dev/null 2>&1; then
+        /bin/systemctl restart ot-recorder >/dev/null 2>&1 || true
+        /bin/sleep 10
+    fi
 fi
 
 exit 0

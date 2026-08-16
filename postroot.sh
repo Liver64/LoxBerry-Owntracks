@@ -13,12 +13,14 @@ PACKAGE_NAME="ot-recorder"
 
 SERVICE_NAME="ot-recorder.service"
 SERVICE_TARGET="/etc/systemd/system/ot-recorder.service"
+SERVICE_SOURCE="/usr/share/doc/ot-recorder/ot-recorder.service"
 
 DEFAULT_FILE="/etc/default/ot-recorder"
 STORE_DIR="/var/spool/owntracks/recorder/store"
 
-PLUGIN_CONFIG_DIR="REPLACELBPCONFIGDIR/recorder"
-PLUGIN_DATA_DIR="REPLACELBPDATADIR/recorder"
+PLUGIN_CONFIG_DIR="REPLACELBHOMEDIR/config/plugins/owntracks4lox/recorder"
+PLUGIN_DATA_DIR="REPLACELBHOMEDIR/data/plugins/owntracks4lox/recorder"
+PLUGIN_SAVED_CONFIG="REPLACELBHOMEDIR/config/plugins/owntracks4lox/ot-recorder"
 
 CONFIG_LINK="${PLUGIN_CONFIG_DIR}/ot-recorder"
 STORE_LINK="${PLUGIN_DATA_DIR}/store"
@@ -68,13 +70,20 @@ fi
 
 echo "<INFO> Checking the OwnTracks systemd service."
 
-systemctl daemon-reload
-
+# Current OwnTracks packages install the service unit directly into systemd.
+# Older packages may only provide a copy below /usr/share/doc. Prefer an
+# already installed unit and use the documentation copy only as a fallback.
 if systemctl cat "$SERVICE_NAME" >/dev/null 2>&1; then
-    echo "<OK> The OwnTracks systemd service is available."
+    echo "<INFO> Using the OwnTracks systemd service installed by the package."
+elif [ -f "$SERVICE_SOURCE" ]; then
+    echo "<INFO> Installing the OwnTracks systemd service supplied by the package."
+    if ! install -o root -g root -m 0644 "$SERVICE_SOURCE" "$SERVICE_TARGET"; then
+        echo "<ERROR> Could not install $SERVICE_SOURCE."
+        exit 2
+    fi
 else
     echo "<WARNING> No OwnTracks systemd service was installed by the package."
-    echo "<INFO> Creating the OwnTracks systemd service."
+    echo "<INFO> Creating a compatible OwnTracks systemd service."
 
     cat > "$SERVICE_TARGET" <<'EOF'
 [Unit]
@@ -88,8 +97,6 @@ User=owntracks
 WorkingDirectory=/
 ExecStartPre=/bin/sleep 3
 ExecStart=/usr/sbin/ot-recorder
-Restart=on-failure
-RestartSec=5
 
 [Install]
 WantedBy=multi-user.target
@@ -104,18 +111,39 @@ EOF
         echo "<ERROR> Could not set the permissions of $SERVICE_TARGET."
         exit 2
     fi
+fi
 
-    if ! systemctl daemon-reload; then
-        echo "<ERROR> systemd could not reload its unit files."
+if ! systemctl daemon-reload; then
+    echo "<ERROR> systemd could not reload its unit files."
+    exit 2
+fi
+
+if ! systemctl cat "$SERVICE_NAME" >/dev/null 2>&1; then
+    echo "<ERROR> The OwnTracks systemd service is unavailable."
+    exit 2
+fi
+
+echo "<OK> The OwnTracks systemd service is available."
+
+#
+# On upgrades the LoxBerry pre/post-upgrade scripts restore the recorder
+# configuration saved by the plugin. Re-apply it after a possible package
+# upgrade so /etc/default/ot-recorder cannot silently fall back to package
+# defaults. Fresh installations do not have this file yet.
+#
+if [ -f "$PLUGIN_SAVED_CONFIG" ]; then
+    echo "<INFO> Restoring the saved OwnTracks Recorder configuration."
+
+    if ! install \
+        -o root \
+        -g owntracks \
+        -m 0640 \
+        "$PLUGIN_SAVED_CONFIG" \
+        "$DEFAULT_FILE"
+    then
+        echo "<ERROR> Could not restore the saved OwnTracks Recorder configuration."
         exit 2
     fi
-
-    if ! systemctl cat "$SERVICE_NAME" >/dev/null 2>&1; then
-        echo "<ERROR> The OwnTracks systemd service is still unavailable."
-        exit 2
-    fi
-
-    echo "<OK> The OwnTracks systemd service was created successfully."
 fi
 
 #
@@ -160,6 +188,45 @@ fi
 if ! chmod 0750 "$STORE_DIR"; then
     echo "<ERROR> Could not set the permissions of the OwnTracks storage directory $STORE_DIR."
     exit 2
+fi
+
+#
+# Initialize the Recorder storage only when the LMDB structure is missing.
+# Newer OwnTracks Debian packages restart the service from their package
+# post-install script. Running --initialize concurrently with that service can
+# fail even though an existing store is perfectly valid. Therefore an existing
+# LMDB database is left untouched. For a fresh store, stop the service first,
+# initialize it, and print the real Recorder error if initialization fails.
+#
+if [ -f "$STORE_DIR/ghash/data.mdb" ] || [ -f "$STORE_DIR/ghash/lock.mdb" ]; then
+    echo "<OK> Existing OwnTracks Recorder storage detected; initialization is not required."
+else
+    echo "<INFO> Initializing the OwnTracks Recorder storage."
+
+    if systemctl is-active --quiet "$SERVICE_NAME" 2>/dev/null; then
+        echo "<INFO> Stopping the OwnTracks Recorder temporarily for initialization."
+        if ! systemctl stop "$SERVICE_NAME"; then
+            echo "<ERROR> The OwnTracks Recorder service could not be stopped for initialization."
+            exit 2
+        fi
+    fi
+
+    INIT_LOG=$(mktemp /tmp/owntracks-init.XXXXXX) || {
+        echo "<ERROR> Could not create a temporary initialization log."
+        exit 2
+    }
+
+    if /usr/sbin/ot-recorder --initialize >"$INIT_LOG" 2>&1; then
+        rm -f "$INIT_LOG"
+        echo "<OK> The OwnTracks Recorder storage is initialized."
+    else
+        echo "<ERROR> The OwnTracks Recorder storage could not be initialized."
+        if [ -s "$INIT_LOG" ]; then
+            sed 's/^/<ERROR> ot-recorder: /' "$INIT_LOG"
+        fi
+        rm -f "$INIT_LOG"
+        exit 2
+    fi
 fi
 
 #

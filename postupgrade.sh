@@ -1,54 +1,77 @@
 #!/bin/sh
-
-# Bash script which is executed in case of an update (if this plugin is already
-# installed on the system). This script is executed as very last step (*AFTER*
-# postinstall) and can be for example used to save back or convert saved
-# userfiles from /tmp back to the system. Use with caution and remember, that
-# all systems may be different!
 #
-# Exit code must be 0 if executed successfull. 
-# Exit code 1 gives a warning but continues installation.
-# Exit code 2 cancels installation.
+# LoxBerry OwnTracks plugin
+# Upgrade restore script
 #
-# Will be executed as user "loxberry".
+# Runs as user "loxberry" after the new plugin files have been installed and
+# before postroot.sh is executed.
 #
-# You can use all vars from /etc/environment in this script.
-#
-# We add 5 additional arguments when executing this script:
-# command <TEMPFOLDER> <NAME> <FOLDER> <VERSION> <BASEFOLDER>
-#
-# For logging, print to STDOUT. You can use the following tags for showing
-# different colorized information during plugin installation:
-#
-# <OK> This was ok!"
-# <INFO> This is just for your information."
-# <WARNING> This is a warning!"
-# <ERROR> This is an error!"
-# <FAIL> This is a fail!"
 
-# To use important variables from command line use the following code:
-COMMAND=$0    # Zero argument is shell command
-PTEMPDIR=$1   # First argument is temp folder during install
-PSHNAME=$2    # Second argument is Plugin-Name for scipts etc.
-PDIR=$3       # Third argument is Plugin installation folder
-PVERSION=$4   # Forth argument is Plugin version
-LBHOMEDIR=$5  # Comes from /etc/environment now. Fifth argument is
-              # Base folder of LoxBerry
+set -u
 
-echo "<INFO> Copy back existing config files"
-cp -p -v -r /tmp/$1\_upgrade/config/$3/* $5/config/plugins/$3/ 
+PTEMPDIR=$1
+PSHNAME=$2
+PDIR=$3
+PVERSION=$4
+LBHOMEDIR=$5
 
-#echo "<INFO> Copy back existing recorder config files"
-#cp -p -v -r /tmp/$1\_upgrade/ot-config/ot-recorder /etc/default/ot-recorder 
+BACKUP_DIR="/tmp/${PTEMPDIR}_upgrade"
+CONFIG_DIR="${LBHOMEDIR}/config/plugins/${PDIR}"
+DATA_DIR="${LBHOMEDIR}/data/plugins/${PDIR}"
+HTMLAUTH_DIR="${LBHOMEDIR}/webfrontend/htmlauth/plugins/${PDIR}"
 
-echo "<INFO> Copy back existing log files"
-cp -p -v -r /tmp/$1\_upgrade/log/$3/* $5/log/plugins/$3/ 
+if [ ! -d "$BACKUP_DIR" ]; then
+    echo "<WARNING> No OwnTracks upgrade backup directory was found."
+    exit 1
+fi
 
-mkdir -p $5/webfrontend/htmlauth/plugins/$3/files
+echo "<INFO> Restoring OwnTracks plugin configuration."
+if ! mkdir -p "$CONFIG_DIR"; then
+    echo "<ERROR> Could not create $CONFIG_DIR."
+    exit 2
+fi
 
-echo "<INFO> Copy back existing User App files"
-cp -p -v -r /tmp/$1\_upgrade/webfrontend/htmlauth/$3/files/* $5/webfrontend/htmlauth/plugins/$3/files/ 
+for SRC in "$BACKUP_DIR/config"/*; do
+    [ -f "$SRC" ] || continue
+    if ! cp -p "$SRC" "$CONFIG_DIR/"; then
+        echo "<ERROR> Could not restore $SRC."
+        exit 2
+    fi
+done
 
-rm -r /tmp/$1\_upgrade
+# Restore only generated app files. Packaged template files from the new release
+# remain untouched.
+if [ -d "$BACKUP_DIR/user_config_files" ]; then
+    echo "<INFO> Restoring generated OwnTracks app configuration files."
+    if ! mkdir -p "$DATA_DIR/user_config_files"; then
+        echo "<ERROR> Could not create $DATA_DIR/user_config_files."
+        exit 2
+    fi
 
+    for SRC in "$BACKUP_DIR/user_config_files"/*.otrc; do
+        [ -f "$SRC" ] || continue
+        if ! cp -p "$SRC" "$DATA_DIR/user_config_files/"; then
+            echo "<ERROR> Could not restore $SRC."
+            exit 2
+        fi
+    done
+fi
+
+# Restore legacy files only when real content was backed up. They are left in
+# the old location so the plugin's existing migration routine can consume them.
+if [ -d "$BACKUP_DIR/legacy-htmlauth/files" ] && \
+   [ -n "$(find "$BACKUP_DIR/legacy-htmlauth/files" -mindepth 1 -print -quit 2>/dev/null)" ]
+then
+    echo "<INFO> Restoring legacy OwnTracks app files for migration."
+    if ! mkdir -p "$HTMLAUTH_DIR/files" || \
+       ! cp -p -R "$BACKUP_DIR/legacy-htmlauth/files"/. "$HTMLAUTH_DIR/files"/
+    then
+        echo "<ERROR> Could not restore legacy OwnTracks app files."
+        exit 2
+    fi
+fi
+
+rm -rf "$BACKUP_DIR"
+
+echo "<OK> OwnTracks upgrade data restored successfully."
 exit 0
