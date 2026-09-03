@@ -68,6 +68,19 @@ if ! id loxberry >/dev/null 2>&1; then
     exit 2
 fi
 
+#
+# The LoxBerry web frontend needs read access to the Recorder store
+# in order to detect whether tracking data exists.
+#
+if ! id -nG loxberry | tr ' ' '\n' | grep -qx 'owntracks'; then
+    echo "<INFO> Adding the LoxBerry user to the OwnTracks group."
+
+    if ! usermod -aG owntracks loxberry; then
+        echo "<ERROR> Could not add the LoxBerry user to the OwnTracks group."
+        exit 2
+    fi
+fi
+
 echo "<INFO> Checking the OwnTracks systemd service."
 
 # Current OwnTracks packages install the service unit directly into systemd.
